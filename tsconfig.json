@@ -1,0 +1,9 @@
+{
+	"extends": "@standard-config/tsconfig",
+	"include": [
+		"**/*"
+	],
+	"exclude": [
+		"node_modules"
+	]
+}

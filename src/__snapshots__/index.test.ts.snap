@@ -1,0 +1,207 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`JSON > expands non-empty arrays and objects 1`] = `
+"{
+  "foo": [
+    1,
+    2
+  ],
+  "bar": [
+    3
+  ],
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  "qux": [],
+  "quux": {}
+}
+"
+`;
+
+exports[`JSON > respects custom formatting options 1`] = `
+"{
+	"foo": [
+		1,
+		2
+	],
+	"bar": [
+		3
+	],
+	"baz": {
+		"values": [
+			4
+		]
+	},
+	"qux": [],
+	"quux": {}
+}
+"
+`;
+
+exports[`JSON > respects custom formatting options 2`] = `
+"{
+    "foo": [
+        1,
+        2
+    ],
+    "bar": [
+        3
+    ],
+    "baz": {
+        "values": [
+            4
+        ]
+    },
+    "qux": [],
+    "quux": {}
+}
+"
+`;
+
+exports[`JSON > works with other plugins 1`] = `
+"{
+  "bar": [
+    3
+  ],
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  "foo": [
+    1,
+    2
+  ],
+  "quux": {},
+  "qux": []
+}
+"
+`;
+
+exports[`JSON.stringify > expands non-empty arrays and objects 1`] = `
+"{
+  "foo": [
+    1,
+    2
+  ],
+  "bar": [
+    3
+  ],
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  "qux": [],
+  "quux": {}
+}
+"
+`;
+
+exports[`JSON.stringify > respects custom formatting options 1`] = `
+"{
+	"foo": [
+		1,
+		2
+	],
+	"bar": [
+		3
+	],
+	"baz": {
+		"values": [
+			4
+		]
+	},
+	"qux": [],
+	"quux": {}
+}
+"
+`;
+
+exports[`JSON.stringify > respects custom formatting options 2`] = `
+"{
+    "foo": [
+        1,
+        2
+    ],
+    "bar": [
+        3
+    ],
+    "baz": {
+        "values": [
+            4
+        ]
+    },
+    "qux": [],
+    "quux": {}
+}
+"
+`;
+
+exports[`JSONC > expands non-empty arrays and objects 1`] = `
+"{
+  // Comment 1️⃣
+  "foo": [
+    1,
+    2
+  ],
+  "bar": [
+    3
+  ],
+  // Comment 2️⃣
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  "qux": [], // Comment 3️⃣
+  "quux": {}
+}
+"
+`;
+
+exports[`JSONC > respects custom formatting options 1`] = `
+"{
+	// Comment 1️⃣
+	"foo": [
+		1,
+		2
+	],
+	"bar": [
+		3
+	],
+	// Comment 2️⃣
+	"baz": {
+		"values": [
+			4
+		]
+	},
+	"qux": [], // Comment 3️⃣
+	"quux": {}
+}
+"
+`;
+
+exports[`JSONC > respects custom formatting options 2`] = `
+"{
+    // Comment 1️⃣
+    "foo": [
+        1,
+        2
+    ],
+    "bar": [
+        3
+    ],
+    // Comment 2️⃣
+    "baz": {
+        "values": [
+            4
+        ]
+    },
+    "qux": [], // Comment 3️⃣
+    "quux": {}
+}
+"
+`;
