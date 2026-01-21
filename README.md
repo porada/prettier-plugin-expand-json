@@ -12,9 +12,9 @@ Prettier plugin that expands all JSON arrays and objects into multi-line notatio
 
 ```json
 {
-	"extends": "@standard-config/tsconfig",
-	"compilerOptions": { "exactOptionalPropertyTypes": true },
-	"files": ["src/index.ts", "src/index.d.ts"]
+    "extends": "@standard-config/tsconfig",
+    "compilerOptions": { "exactOptionalPropertyTypes": true },
+    "files": ["src/index.ts", "src/index.d.ts"]
 }
 ```
 
