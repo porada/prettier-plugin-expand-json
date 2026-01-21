@@ -1,6 +1,7 @@
 import type { Plugin } from 'prettier';
 import { format } from 'prettier';
 import * as pluginSortJSON from 'prettier-plugin-sort-json';
+import { parsers as babelParsers } from 'prettier/plugins/babel';
 import { describe, expect, expectTypeOf, test } from 'vitest';
 import * as pluginExpandJSON from './index.ts';
 
@@ -68,16 +69,33 @@ describe.each(TESTS)('%s', (_, parser, input) => {
 		expect(output).toMatchSnapshot();
 	});
 
-	if (parser === 'json') {
-		test('works with other plugins', async () => {
-			const output = await format(input, {
-				parser,
-				plugins: [pluginSortJSON, pluginExpandJSON],
-			});
+	test('works with other plugins', async () => {
+		const testPlugin: Plugin = {
+			parsers: {
+				[parser]: {
+					...babelParsers[parser],
+					preprocess: async () => {
+						/* oxlint-disable-next-line eslint/no-promise-executor-return */
+						await new Promise((resolve) => setTimeout(resolve));
+						return JSON.stringify({ foo: {}, bar: ['baz'] });
+					},
+				},
+			},
+		};
 
-			expect(output).toMatchSnapshot();
+		const emptyPlugin: Plugin = {};
+
+		const output = await format(input, {
+			parser,
+			plugins: [
+				parser === 'json' ? pluginSortJSON : testPlugin,
+				emptyPlugin,
+				pluginExpandJSON,
+			],
 		});
-	}
+
+		expect(output).toMatchSnapshot();
+	});
 
 	test('handles empty files', async () => {
 		const input = '\n';

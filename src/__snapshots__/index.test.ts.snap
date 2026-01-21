@@ -140,6 +140,16 @@ exports[`JSON.stringify > respects custom formatting options 2`] = `
 "
 `;
 
+exports[`JSON.stringify > works with other plugins 1`] = `
+"{
+  "foo": {},
+  "bar": [
+    "baz"
+  ]
+}
+"
+`;
+
 exports[`JSONC > expands non-empty arrays and objects 1`] = `
 "{
   // Comment 1️⃣
@@ -202,6 +212,16 @@ exports[`JSONC > respects custom formatting options 2`] = `
     },
     "qux": [], // Comment 3️⃣
     "quux": {}
+}
+"
+`;
+
+exports[`JSONC > works with other plugins 1`] = `
+"{
+  "foo": {},
+  "bar": [
+    "baz"
+  ]
 }
 "
 `;
