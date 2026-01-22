@@ -1,6 +1,6 @@
 {
 	"name": "prettier-plugin-expand-json",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "Expand JSON arrays and objects into multi-line notation with Prettier",
 	"license": "MIT",
 	"author": {

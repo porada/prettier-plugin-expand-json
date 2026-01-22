@@ -4,7 +4,7 @@
 
 # prettier-plugin-expand-json
 
-Expand JSON arrays and objects into multi-line notation with Prettier. Works with JSON and JSONC files.
+Expand JSON arrays and objects into multi-line notation with Prettier—for JSON and JSONC files.
 
 ## Example
 
