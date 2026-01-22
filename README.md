@@ -4,7 +4,7 @@
 
 # prettier-plugin-expand-json
 
-Prettier plugin that expands all JSON arrays and objects into multi-line notation. Works with both JSON and JSONC files.
+Expand JSON arrays and objects into multi-line notation with Prettier. Works with JSON and JSONC files.
 
 ## Example
 
@@ -90,3 +90,7 @@ If you’re using multiple JSON-related plugins, make sure `prettier-plugin-expa
 ## Recommended
 
 Try [**@standard-config/prettier**](https://github.com/standard-config/prettier) if you’re looking for a consistent, TypeScript-first Prettier config. It comes with this plugin pre-configured.
+
+## License
+
+MIT © [Dom Porada](https://dom.engineering)
