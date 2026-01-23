@@ -76,10 +76,7 @@
 		],
 		"eslint/no-magic-numbers": "off",
 		"eslint/no-param-reassign": [
-			"error",
-			{
-				"props": true
-			}
+			"error"
 		],
 		"eslint/no-return-assign": [
 			"error",
