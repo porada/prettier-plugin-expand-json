@@ -87,9 +87,9 @@ If you’re using multiple JSON-related plugins, make sure `prettier-plugin-expa
 }
 ```
 
-## Recommended
+## Related
 
-Try [**@standard-config/prettier**](https://github.com/standard-config/prettier) if you’re looking for a consistent, TypeScript-first Prettier config. It comes with this plugin pre-configured.
+- [**@standard-config/prettier**](https://github.com/standard-config/prettier)
 
 ## License
 
