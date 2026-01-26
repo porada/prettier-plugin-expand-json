@@ -3,7 +3,8 @@
 		".editorconfig": true
 	},
 	"search.exclude": {
-		"**/*.snap": true
+		"**/*.snap": true,
+		"pnpm-lock.yaml": true
 	},
 	"typescript.tsdk": "node_modules/typescript/lib"
 }

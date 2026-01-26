@@ -29,7 +29,7 @@
 	"engines": {
 		"node": ">=20"
 	},
-	"packageManager": "pnpm@10.28.1",
+	"packageManager": "pnpm@10.28.2",
 	"dependencies": {
 		"jsonc-parser": "^3.3.1"
 	},
@@ -37,15 +37,15 @@
 		"prettier": ">=3"
 	},
 	"devDependencies": {
-		"@standard-config/eslint": "1.0.0",
-		"@standard-config/prettier": "1.6.0",
-		"@standard-config/tsconfig": "2.0.0",
+		"@standard-config/eslint": "1.2.1",
+		"@standard-config/prettier": "1.6.1",
+		"@standard-config/tsconfig": "2.0.2",
 		"@vitest/coverage-v8": "4.0.18",
 		"eslint": "9.39.2",
 		"husky": "9.1.7",
 		"jiti": "2.6.1",
-		"oxlint": "1.41.0",
-		"oxlint-tsgolint": "0.11.1",
+		"oxlint": "1.42.0",
+		"oxlint-tsgolint": "0.11.2",
 		"prettier": "3.8.1",
 		"prettier-plugin-sort-json": "4.2.0",
 		"publint": "0.3.17",
