@@ -13,22 +13,22 @@ test('exposes correct public API', () => {
 });
 
 const TEST_JSON = `{
-		"foo": [1, 2],
-		"bar": [3],
-		"baz": { "values": [4] },
-		"qux": [],
-		"quux": {}
-	}`;
+	"foo": [1, 2],
+	"bar": [3],
+	"baz": { "values": [4] },
+	"qux": [],
+	"quux": {}
+}`;
 
 const TEST_JSONC = `{
-		// Comment 1️⃣
-		"foo": [1, 2],
-		"bar": [3],
-		// Comment 2️⃣
-		"baz": { "values": [4] },
-		"qux": [], // Comment 3️⃣
-		"quux": {},
-	}`;
+	// Comment 1️⃣
+	"foo": [1, 2],
+	"bar": [3],
+	// Comment 2️⃣
+	"baz": { "values": [4] },
+	"qux": [], // Comment 3️⃣
+	"quux": {},
+}`;
 
 const TESTS = [
 	['JSON', 'json', TEST_JSON],

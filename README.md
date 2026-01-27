@@ -57,7 +57,7 @@ Reference `prettier-plugin-expand-json` in your [Prettier config](https://pretti
 }
 ```
 
-If you’re using multiple JSON-related plugins, make sure `prettier-plugin-expand-json` is listed last. This applies to each `overrides` entry as well.
+If you’re using any other JSON plugins, make sure `prettier-plugin-expand-json` is listed last. This applies to each `overrides` entry as well.
 
 ```json
 {
@@ -90,6 +90,7 @@ If you’re using multiple JSON-related plugins, make sure `prettier-plugin-expa
 ## Related
 
 - [**@standard-config/prettier**](https://github.com/standard-config/prettier)
+- [**prettier-plugin-yaml**](https://github.com/porada/prettier-plugin-yaml)
 
 ## License
 
