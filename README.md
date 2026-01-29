@@ -1,10 +1,35 @@
-[![](https://img.shields.io/npm/v/prettier-plugin-expand-json)](https://www.npmjs.com/package/prettier-plugin-expand-json)
-[![](https://img.shields.io/github/actions/workflow/status/porada/prettier-plugin-expand-json/test.yaml)](https://github.com/porada/prettier-plugin-expand-json/actions/workflows/test.yaml)
-[![](https://img.shields.io/codecov/c/github/porada/prettier-plugin-expand-json)](https://codecov.io/github/porada/prettier-plugin-expand-json)
+<p align="center">
+    <a href="https://github.com/porada/prettier-plugin-expand-json">
+        <picture>
+            <source srcset="https://github.com/porada/prettier-plugin-expand-json/blob/main/assets/prettier-plugin-expand-json-dark-scheme@3x.png?raw=true" media="(prefers-color-scheme: dark)" />
+            <source srcset="https://github.com/porada/prettier-plugin-expand-json/blob/main/assets/prettier-plugin-expand-json-light-scheme@3x.png?raw=true" media="(prefers-color-scheme: light)" />
+            <img src="https://github.com/porada/prettier-plugin-expand-json/blob/main/assets/prettier-plugin-expand-json-light-scheme@3x.png?raw=true" width="520" alt="" />
+        </picture>
+    </a>
+</p>
 
-# prettier-plugin-expand-json
+<h1 align="center">
+    prettier-plugin-expand-json
+</h1>
 
-Expand JSON arrays and objects into multi-line notation with Prettier—for JSON and JSONC files.
+<p align="center">
+    Expand JSON arrays and objects into multi&#8209;line&nbsp;format with&nbsp;Prettier.
+</p>
+
+<p align="center">
+    <a href="https://www.npmjs.com/package/prettier-plugin-expand-json"><img src="https://img.shields.io/npm/v/prettier-plugin-expand-json" alt="" /></a>
+    <a href="https://github.com/porada/prettier-plugin-expand-json/actions/workflows/test.yaml"><img src="https://img.shields.io/github/actions/workflow/status/porada/prettier-plugin-expand-json/test.yaml" alt="" /></a>
+    <a href="https://codecov.io/github/porada/prettier-plugin-expand-json"><img src="https://img.shields.io/codecov/c/github/porada/prettier-plugin-expand-json" alt="" /></a>
+</p>
+
+<div>&nbsp;</div>
+
+## Overview
+
+This plugin expands all JSON arrays and objects into a consistent multi-line format.
+
+- Works with both JSON and JSONC files.
+- Supports files that Prettier treats as special cases, including `package.json`, `composer.json`, and others.
 
 ## Example
 
@@ -70,12 +95,9 @@ If you’re using any other JSON plugins, make sure `prettier-plugin-expand-json
 
 ```json
 {
-    "plugins": [
-        "prettier-plugin-expand-json"
-    ],
     "overrides": [
         {
-            "files": "packages/**/package.json",
+            "files": "**/package.json",
             "options": {
                 "plugins": [
                     "prettier-plugin-pkg",
