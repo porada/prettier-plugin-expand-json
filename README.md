@@ -3,7 +3,7 @@
 </h1>
 
 <p align="center">
-    Expand JSON arrays and objects into multi-line notation with Prettier—for JSON and JSONC files.
+    Expand JSON arrays and objects into multi&#8209;line&nbsp;format with&nbsp;Prettier.
 </p>
 
 <p align="center">
@@ -13,6 +13,12 @@
 </p>
 
 <div>&nbsp;</div>
+
+## Overview
+
+This plugin expands all JSON arrays and objects into a consistent multi-line format. It works with both JSON and JSONC files.
+
+It also supports files that Prettier treats as special cases, including `package.json`, `composer.json`, and others.
 
 ## Example
 
