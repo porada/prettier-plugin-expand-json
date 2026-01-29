@@ -1,3 +1,12 @@
+<p align="center">
+    <a href="https://github.com/porada/prettier-plugin-expand-json">
+        <picture>
+            <source srcset="assets/prettier-plugin-expand-json@3x.png" media="(prefers-color-scheme: light)" />
+            <img src="assets/prettier-plugin-expand-json@3x.png" width="520" alt="" />
+        </picture>
+    </a>
+</p>
+
 <h1 align="center">
     prettier-plugin-expand-json
 </h1>
