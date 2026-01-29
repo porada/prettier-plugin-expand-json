@@ -1,9 +1,9 @@
 <p align="center">
     <a href="https://github.com/porada/prettier-plugin-expand-json">
         <picture>
-            <source srcset="assets/prettier-plugin-expand-json-dark-scheme@3x.png" media="(prefers-color-scheme: dark)" />
-            <source srcset="assets/prettier-plugin-expand-json-light-scheme@3x.png" media="(prefers-color-scheme: light)" />
-            <img src="assets/prettier-plugin-expand-json-light-scheme@3x.png" width="520" alt="" />
+            <source srcset="https://github.com/porada/prettier-plugin-expand-json/blob/main/assets/prettier-plugin-expand-json-dark-scheme@3x.png?raw=true" media="(prefers-color-scheme: dark)" />
+            <source srcset="https://github.com/porada/prettier-plugin-expand-json/blob/main/assets/prettier-plugin-expand-json-light-scheme@3x.png?raw=true" media="(prefers-color-scheme: light)" />
+            <img src="https://github.com/porada/prettier-plugin-expand-json/blob/main/assets/prettier-plugin-expand-json-light-scheme@3x.png?raw=true" width="520" alt="" />
         </picture>
     </a>
 </p>
