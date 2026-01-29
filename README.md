@@ -26,9 +26,10 @@
 
 ## Overview
 
-This plugin expands all JSON arrays and objects into a consistent multi-line format. It works with both JSON and JSONC files.
+This plugin expands all JSON arrays and objects into a consistent multi-line format.
 
-It also supports files that Prettier treats as special cases, including `package.json`, `composer.json`, and others.
+- Works with both JSON and JSONC files.
+- Supports files that Prettier treats as special cases, including `package.json`, `composer.json`, and others.
 
 ## Example
 
