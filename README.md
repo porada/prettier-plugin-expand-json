@@ -9,7 +9,7 @@
 </p>
 
 <h1 align="center">
-    prettier-plugin-expand-json
+    prettier-plugin-expand&#8209;json
 </h1>
 
 <p align="center">
@@ -30,6 +30,7 @@ This plugin expands all JSON arrays and objects into a consistent multi-line for
 
 - Works with both JSON and JSONC files.
 - Supports files that Prettier treats as special cases, including `package.json`, `composer.json`, and others.
+- Comes without any additional dependencies.
 
 ## Example
 
