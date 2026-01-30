@@ -50,20 +50,21 @@ describe.each(TESTS)('%s', (_, parser, input) => {
 		expect(output).toMatchSnapshot();
 	});
 
-	test('respects custom formatting options', async () => {
-		let output = await format(input, {
-			parser,
-			plugins: [pluginExpandJSON],
-			useTabs: true,
-		});
-
-		expect(output).toMatchSnapshot();
-
-		output = await format(input, {
+	test('respects `tabWidth`', async () => {
+		const output = await format(input, {
 			parser,
 			plugins: [pluginExpandJSON],
 			tabWidth: 4,
-			useTabs: false,
+		});
+
+		expect(output).toMatchSnapshot();
+	});
+
+	test('respects `useTabs`', async () => {
+		const output = await format(input, {
+			parser,
+			plugins: [pluginExpandJSON],
+			useTabs: true,
 		});
 
 		expect(output).toMatchSnapshot();

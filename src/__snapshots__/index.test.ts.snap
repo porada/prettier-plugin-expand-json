@@ -20,27 +20,7 @@ exports[`JSON > expands non-empty arrays and objects 1`] = `
 "
 `;
 
-exports[`JSON > respects custom formatting options 1`] = `
-"{
-	"foo": [
-		1,
-		2
-	],
-	"bar": [
-		3
-	],
-	"baz": {
-		"values": [
-			4
-		]
-	},
-	"qux": [],
-	"quux": {}
-}
-"
-`;
-
-exports[`JSON > respects custom formatting options 2`] = `
+exports[`JSON > respects \`tabWidth\` 1`] = `
 "{
     "foo": [
         1,
@@ -56,6 +36,26 @@ exports[`JSON > respects custom formatting options 2`] = `
     },
     "qux": [],
     "quux": {}
+}
+"
+`;
+
+exports[`JSON > respects \`useTabs\` 1`] = `
+"{
+	"foo": [
+		1,
+		2
+	],
+	"bar": [
+		3
+	],
+	"baz": {
+		"values": [
+			4
+		]
+	},
+	"qux": [],
+	"quux": {}
 }
 "
 `;
@@ -100,27 +100,7 @@ exports[`JSON.stringify > expands non-empty arrays and objects 1`] = `
 "
 `;
 
-exports[`JSON.stringify > respects custom formatting options 1`] = `
-"{
-	"foo": [
-		1,
-		2
-	],
-	"bar": [
-		3
-	],
-	"baz": {
-		"values": [
-			4
-		]
-	},
-	"qux": [],
-	"quux": {}
-}
-"
-`;
-
-exports[`JSON.stringify > respects custom formatting options 2`] = `
+exports[`JSON.stringify > respects \`tabWidth\` 1`] = `
 "{
     "foo": [
         1,
@@ -136,6 +116,26 @@ exports[`JSON.stringify > respects custom formatting options 2`] = `
     },
     "qux": [],
     "quux": {}
+}
+"
+`;
+
+exports[`JSON.stringify > respects \`useTabs\` 1`] = `
+"{
+	"foo": [
+		1,
+		2
+	],
+	"bar": [
+		3
+	],
+	"baz": {
+		"values": [
+			4
+		]
+	},
+	"qux": [],
+	"quux": {}
 }
 "
 `;
@@ -172,29 +172,7 @@ exports[`JSONC > expands non-empty arrays and objects 1`] = `
 "
 `;
 
-exports[`JSONC > respects custom formatting options 1`] = `
-"{
-	// Comment 1️⃣
-	"foo": [
-		1,
-		2
-	],
-	"bar": [
-		3
-	],
-	// Comment 2️⃣
-	"baz": {
-		"values": [
-			4
-		]
-	},
-	"qux": [], // Comment 3️⃣
-	"quux": {}
-}
-"
-`;
-
-exports[`JSONC > respects custom formatting options 2`] = `
+exports[`JSONC > respects \`tabWidth\` 1`] = `
 "{
     // Comment 1️⃣
     "foo": [
@@ -212,6 +190,28 @@ exports[`JSONC > respects custom formatting options 2`] = `
     },
     "qux": [], // Comment 3️⃣
     "quux": {}
+}
+"
+`;
+
+exports[`JSONC > respects \`useTabs\` 1`] = `
+"{
+	// Comment 1️⃣
+	"foo": [
+		1,
+		2
+	],
+	"bar": [
+		3
+	],
+	// Comment 2️⃣
+	"baz": {
+		"values": [
+			4
+		]
+	},
+	"qux": [], // Comment 3️⃣
+	"quux": {}
 }
 "
 `;

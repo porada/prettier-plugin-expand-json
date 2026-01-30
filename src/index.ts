@@ -1,13 +1,7 @@
 import type { Parser, ParserOptions, Plugin } from 'prettier';
-import { applyEdits, format } from 'jsonc-parser';
+import type { ParserName, PluginWithParsers } from './types/index.d.ts';
 import { parsers as babelParsers } from 'prettier/plugins/babel';
 import { printers as estreePrinters } from 'prettier/plugins/estree';
-
-type ParserName = 'json' | 'json-stringify' | 'jsonc';
-
-type ParserPlugin = Omit<Plugin, 'parsers'> & {
-	parsers: NonNullable<Plugin['parsers']>;
-};
 
 function createParser(name: ParserName): Parser {
 	const parse: Parser['parse'] = async (
@@ -39,13 +33,7 @@ function createParser(name: ParserName): Parser {
 			);
 		}
 
-		// This is where the actual expansion happens
-		const edits = format(text, undefined, {
-			insertSpaces: !options.useTabs,
-			tabSize: options.tabWidth,
-		});
-
-		return applyEdits(text, edits);
+		return text;
 	};
 
 	return {
@@ -77,7 +65,7 @@ function findPriorParser(
 	return undefined;
 }
 
-function isParserPlugin(plugin: unknown): plugin is ParserPlugin {
+function isParserPlugin(plugin: unknown): plugin is PluginWithParsers {
 	/* v8 ignore if -- @preserve */
 	if (!plugin) {
 		return false;
