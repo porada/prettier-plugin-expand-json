@@ -26,8 +26,7 @@ function createParser(name: ParserName): Parser {
 		const priorParser = findPriorParser(name, options, parse);
 
 		if (typeof priorParser?.preprocess === 'function') {
-			/* oxlint-disable-next-line eslint/no-param-reassign */
-			text = await priorParser.preprocess(
+			return priorParser.preprocess(
 				text,
 				omitCurrentParser(name, options, parse)
 			);
@@ -50,7 +49,7 @@ function findPriorParser(
 	currentParse: Parser['parse']
 ): Parser | undefined {
 	for (const plugin of options.plugins.toReversed()) {
-		if (!isParserPlugin(plugin)) {
+		if (!hasParsers(plugin)) {
 			continue;
 		}
 
@@ -65,7 +64,7 @@ function findPriorParser(
 	return undefined;
 }
 
-function isParserPlugin(plugin: unknown): plugin is PluginWithParsers {
+function hasParsers(plugin: unknown): plugin is PluginWithParsers {
 	/* v8 ignore if -- @preserve */
 	if (!plugin) {
 		return false;
@@ -82,7 +81,7 @@ function omitCurrentParser(
 	return {
 		...options,
 		plugins: options.plugins.filter((plugin) => {
-			if (!isParserPlugin(plugin)) {
+			if (!hasParsers(plugin)) {
 				return true;
 			}
 
