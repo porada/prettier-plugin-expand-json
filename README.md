@@ -131,6 +131,7 @@ If you’re using any other JSON plugins, make sure `prettier-plugin-expand-json
 ## Related
 
 - [**@standard-config/prettier**](https://github.com/standard-config/prettier)
+- [**prettier-plugin-markdown-html**](https://github.com/porada/prettier-plugin-markdown-html)
 - [**prettier-plugin-yaml**](https://github.com/porada/prettier-plugin-yaml)
 
 ## License
