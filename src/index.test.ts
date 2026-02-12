@@ -76,7 +76,6 @@ describe.each(TESTS)('%s', (_, parser, input) => {
 				[parser]: {
 					...babelParsers[parser],
 					preprocess: async () => {
-						/* oxlint-disable-next-line eslint/no-promise-executor-return */
 						await new Promise((resolve) => setTimeout(resolve));
 						return JSON.stringify({ foo: {}, bar: ['baz'] });
 					},
