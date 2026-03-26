@@ -57,8 +57,9 @@ This plugin expands all JSON arrays and objects into a consistent multi-line for
 ```json
 {
     "extends": "@standard-config/tsconfig",
-    "compilerOptions": { "exactOptionalPropertyTypes": true },
-    "files": ["src/index.ts", "src/index.d.ts"]
+    "compilerOptions": {
+        "types": ["node", "vitest/globals"]
+    }
 }
 ```
 
@@ -70,12 +71,11 @@ This plugin expands all JSON arrays and objects into a consistent multi-line for
 {
     "extends": "@standard-config/tsconfig",
     "compilerOptions": {
-        "exactOptionalPropertyTypes": true
-    },
-    "files": [
-        "src/index.ts",
-        "src/index.d.ts"
-    ]
+        "types": [
+            "node",
+            "vitest/globals"
+        ]
+    }
 }
 ```
 
