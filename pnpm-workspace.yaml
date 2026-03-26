@@ -3,9 +3,13 @@ autoInstallPeers: false
 onlyBuiltDependencies:
   - esbuild
 
+overrides:
+  vite-plus>oxfmt: '-'
+
 peerDependencyRules:
-  allowedVersions:
-    eslint: '*'
-    vitest: '*'
+  allowAny:
+    - eslint
+    - typescript
+    - vitest
 
 strictPeerDependencies: true
