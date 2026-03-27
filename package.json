@@ -38,7 +38,7 @@
 		"@standard-config/oxlint": "^1.6.1",
 		"@standard-config/prettier": "^1.11.2",
 		"@standard-config/tsconfig": "^3.1.0",
-		"@vitest/coverage-v8": "^4.1.1",
+		"@vitest/coverage-v8": "^4.1.2",
 		"eslint": "^10.1.0",
 		"prettier": "^3.8.1",
 		"prettier-plugin-sort-json": "^4.2.0",
