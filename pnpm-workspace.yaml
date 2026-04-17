@@ -3,6 +3,7 @@ autoInstallPeers: false
 blockExoticSubdeps: true
 
 overrides:
+  prettier-plugin-expand-json: '-'
   vite-plus>oxfmt: '-'
 
 peerDependencyRules:
