@@ -155,6 +155,72 @@ exports[`JSONC > expands non-empty arrays and objects 1`] = `
   // Comment 1️⃣
   "foo": [
     1,
+    2,
+  ],
+  "bar": [
+    3,
+  ],
+  // Comment 2️⃣
+  "baz": {
+    "values": [
+      4,
+    ],
+  },
+  "qux": [], // Comment 3️⃣
+  "quux": {},
+}
+"
+`;
+
+exports[`JSONC > respects \`tabWidth\` 1`] = `
+"{
+    // Comment 1️⃣
+    "foo": [
+        1,
+        2,
+    ],
+    "bar": [
+        3,
+    ],
+    // Comment 2️⃣
+    "baz": {
+        "values": [
+            4,
+        ],
+    },
+    "qux": [], // Comment 3️⃣
+    "quux": {},
+}
+"
+`;
+
+exports[`JSONC > respects \`trailingComma\` 1`] = `
+"{
+  // Comment 1️⃣
+  "foo": [
+    1,
+    2,
+  ],
+  "bar": [
+    3,
+  ],
+  // Comment 2️⃣
+  "baz": {
+    "values": [
+      4,
+    ],
+  },
+  "qux": [], // Comment 3️⃣
+  "quux": {},
+}
+"
+`;
+
+exports[`JSONC > respects \`trailingComma\` 2`] = `
+"{
+  // Comment 1️⃣
+  "foo": [
+    1,
     2
   ],
   "bar": [
@@ -172,46 +238,24 @@ exports[`JSONC > expands non-empty arrays and objects 1`] = `
 "
 `;
 
-exports[`JSONC > respects \`tabWidth\` 1`] = `
-"{
-    // Comment 1️⃣
-    "foo": [
-        1,
-        2
-    ],
-    "bar": [
-        3
-    ],
-    // Comment 2️⃣
-    "baz": {
-        "values": [
-            4
-        ]
-    },
-    "qux": [], // Comment 3️⃣
-    "quux": {}
-}
-"
-`;
-
 exports[`JSONC > respects \`useTabs\` 1`] = `
 "{
 	// Comment 1️⃣
 	"foo": [
 		1,
-		2
+		2,
 	],
 	"bar": [
-		3
+		3,
 	],
 	// Comment 2️⃣
 	"baz": {
 		"values": [
-			4
-		]
+			4,
+		],
 	},
 	"qux": [], // Comment 3️⃣
-	"quux": {}
+	"quux": {},
 }
 "
 `;
@@ -220,8 +264,8 @@ exports[`JSONC > works with other plugins 1`] = `
 "{
   "foo": {},
   "bar": [
-    "baz"
-  ]
+    "baz",
+  ],
 }
 "
 `;

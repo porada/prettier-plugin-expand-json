@@ -60,6 +60,20 @@ describe.each(TESTS)('%s', (_, parser, input) => {
 		expect(output).toMatchSnapshot();
 	});
 
+	if (parser === 'jsonc') {
+		test('respects `trailingComma`', async () => {
+			for (const trailingComma of ['all', 'none'] as const) {
+				const output = await format(input, {
+					parser,
+					plugins: [pluginExpandJSON],
+					trailingComma,
+				});
+
+				expect(output).toMatchSnapshot();
+			}
+		});
+	}
+
 	test('respects `useTabs`', async () => {
 		const output = await format(input, {
 			parser,

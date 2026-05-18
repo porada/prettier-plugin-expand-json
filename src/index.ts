@@ -10,6 +10,11 @@ function createParser(name: ParserName): Parser {
 	) => {
 		const priorParser = findPriorParser(name, options, parse);
 
+		// Force the JSONC printer to wrap all lines
+		if (name === 'jsonc') {
+			options.printWidth = 1;
+		}
+
 		/* oxlint-disable-next-line typescript/no-unsafe-return */
 		return typeof priorParser?.parse === 'function'
 			? await priorParser.parse(
@@ -37,7 +42,7 @@ function createParser(name: ParserName): Parser {
 
 	return {
 		...babelParsers[name],
-		astFormat: 'estree-json',
+		astFormat: name === 'jsonc' ? 'estree' : 'estree-json',
 		parse,
 		preprocess,
 	};
@@ -97,15 +102,7 @@ export const parsers: Plugin['parsers'] = {
 	'jsonc': createParser('jsonc'),
 };
 
-// Necessary for comment support in JSONC files
-const { canAttachComment, isBlockComment, printComment } =
-	estreePrinters.estree;
-
 export const printers: Plugin['printers'] = {
-	'estree-json': {
-		...estreePrinters['estree-json'],
-		canAttachComment,
-		isBlockComment,
-		printComment,
-	},
+	'estree': estreePrinters.estree,
+	'estree-json': estreePrinters['estree-json'],
 };
