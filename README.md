@@ -23,19 +23,19 @@
 <p align="center">Expand JSON arrays and objects into multi&#8209;line&nbsp;format with&nbsp;Prettier.</p>
 
 <p align="center">
-    <a href="https://www.npmjs.com/package/prettier-plugin-expand-json"
+    <a href="https://www.npmx.dev/package/prettier-plugin-expand-json"
         ><img
-            src="https://img.shields.io/npm/v/prettier-plugin-expand-json"
+            src="https://img.shields.io/npm/v/prettier-plugin-expand-json?style=flat-square"
             alt=""
     /></a>
     <a href="https://github.com/porada/prettier-plugin-expand-json/actions/workflows/test.yaml"
         ><img
-            src="https://img.shields.io/github/actions/workflow/status/porada/prettier-plugin-expand-json/test.yaml"
+            src="https://img.shields.io/github/actions/workflow/status/porada/prettier-plugin-expand-json/test.yaml?style=flat-square"
             alt=""
     /></a>
     <a href="https://codecov.io/github/porada/prettier-plugin-expand-json"
         ><img
-            src="https://img.shields.io/codecov/c/github/porada/prettier-plugin-expand-json"
+            src="https://img.shields.io/codecov/c/github/porada/prettier-plugin-expand-json?style=flat-square"
             alt=""
     /></a>
 </p>
