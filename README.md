@@ -2,15 +2,15 @@
     <a href="https://github.com/porada/prettier-plugin-expand-json">
         <picture>
             <source
-                srcset="https://github.com/porada/prettier-plugin-expand-json/blob/main/assets/prettier-plugin-expand-json-dark-scheme@3x.png?raw=true"
+                srcset="https://github.com/porada/prettier-plugin-expand-json/blob/main/.github/assets/prettier-plugin-expand-json-dark-scheme@3x.png?raw=true"
                 media="(prefers-color-scheme: dark)"
             />
             <source
-                srcset="https://github.com/porada/prettier-plugin-expand-json/blob/main/assets/prettier-plugin-expand-json-light-scheme@3x.png?raw=true"
+                srcset="https://github.com/porada/prettier-plugin-expand-json/blob/main/.github/assets/prettier-plugin-expand-json-light-scheme@3x.png?raw=true"
                 media="(prefers-color-scheme: light)"
             />
             <img
-                src="https://github.com/porada/prettier-plugin-expand-json/blob/main/assets/prettier-plugin-expand-json-light-scheme@3x.png?raw=true"
+                src="https://github.com/porada/prettier-plugin-expand-json/blob/main/.github/assets/prettier-plugin-expand-json-light-scheme@3x.png?raw=true"
                 width="520"
                 alt=""
             />
