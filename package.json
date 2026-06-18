@@ -12,6 +12,10 @@
 		"type": "git",
 		"url": "git+https://github.com/porada/prettier-plugin-expand-json.git"
 	},
+	"homepage": "https://github.com/porada/prettier-plugin-expand-json#readme",
+	"bugs": {
+		"url": "https://github.com/porada/prettier-plugin-expand-json/issues"
+	},
 	"keywords": [
 		"formatting",
 		"json",
