@@ -2,7 +2,7 @@ import type { Plugin } from 'prettier';
 import { format } from 'prettier';
 import * as pluginSortJSON from 'prettier-plugin-sort-json';
 import { parsers as babelParsers } from 'prettier/plugins/babel';
-import { describe, expect, expectTypeOf, test } from 'vitest';
+import { describe, expect, expectTypeOf, test } from 'vite-plus/test';
 import * as pluginExpandJSON from './index.ts';
 
 test('exposes correct public API', () => {
