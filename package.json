@@ -44,7 +44,7 @@
 		"prettier-plugin-sort-json": "^4.2.0",
 		"publint": "^0.3.21",
 		"typescript": "^6.0.3",
-		"vite-plus": "^0.2.2"
+		"vite-plus": "^0.2.3"
 	},
 	"scripts": {
 		"build": "vp pack",
