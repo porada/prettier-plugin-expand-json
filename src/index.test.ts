@@ -102,7 +102,6 @@ describe.each(TESTS)('%s', (_, parser, input) => {
 		const output = await format(input, {
 			parser,
 			plugins: [
-				/* oxlint-disable-next-line vitest/no-conditional-in-test */
 				parser === 'json' ? pluginSortJSON : testPlugin,
 				emptyPlugin,
 				pluginExpandJSON,
