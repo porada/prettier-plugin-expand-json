@@ -10,7 +10,7 @@ export default defineConfig({
 	lint: defineOxlintConfig(),
 	pack: {
 		deps: {
-			skipNodeModulesBundle: true,
+			neverBundle: true,
 		},
 		dts: {
 			sourcemap: true,
