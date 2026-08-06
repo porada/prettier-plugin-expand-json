@@ -52,8 +52,7 @@ This plugin expands all JSON arrays and objects into a consistent multi-line for
 
 ## Example
 
-<!-- prettier-ignore-start -->
-
+<!-- prettier-ignore -->
 ```json
 {
     "extends": "@standard-config/tsconfig",
@@ -62,8 +61,6 @@ This plugin expands all JSON arrays and objects into a consistent multi-line for
     }
 }
 ```
-
-<!-- prettier-ignore-end -->
 
 …will always be formatted as:
 

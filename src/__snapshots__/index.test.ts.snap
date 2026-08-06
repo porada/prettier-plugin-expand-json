@@ -1,6 +1,162 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`JSON > expands input embedded in Markdown 1`] = `
+"\`\`\`json
+{
+  // Comment 1️⃣
+  "foo": [
+    1,
+    2
+  ],
+  "bar": /* Comment 2️⃣ */ [
+    3
+  ],
+  // Comment 3️⃣
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  "qux": [], // Comment 4️⃣
+  "quux": {}
+}
+\`\`\`
+"
+`;
+
 exports[`JSON > expands non-empty arrays and objects 1`] = `
+"{
+  // Comment 1️⃣
+  "foo": [
+    1,
+    2
+  ],
+  "bar": /* Comment 2️⃣ */ [
+    3
+  ],
+  // Comment 3️⃣
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  "qux": [], // Comment 4️⃣
+  "quux": {}
+}
+"
+`;
+
+exports[`JSON > formats in standalone mode 1`] = `
+"{
+  // Comment 1️⃣
+  "foo": [
+    1,
+    2
+  ],
+  "bar": /* Comment 2️⃣ */ [
+    3
+  ],
+  // Comment 3️⃣
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  "qux": [], // Comment 4️⃣
+  "quux": {}
+}
+"
+`;
+
+exports[`JSON > respects \`tabWidth\` 1`] = `
+"{
+    // Comment 1️⃣
+    "foo": [
+        1,
+        2
+    ],
+    "bar": /* Comment 2️⃣ */ [
+        3
+    ],
+    // Comment 3️⃣
+    "baz": {
+        "values": [
+            4
+        ]
+    },
+    "qux": [], // Comment 4️⃣
+    "quux": {}
+}
+"
+`;
+
+exports[`JSON > respects \`useTabs\` 1`] = `
+"{
+	// Comment 1️⃣
+	"foo": [
+		1,
+		2
+	],
+	"bar": /* Comment 2️⃣ */ [
+		3
+	],
+	// Comment 3️⃣
+	"baz": {
+		"values": [
+			4
+		]
+	},
+	"qux": [], // Comment 4️⃣
+	"quux": {}
+}
+"
+`;
+
+exports[`JSON > works with other plugins 1`] = `
+"{
+  "bar": /* Comment 2️⃣ */ [
+    3
+  ],
+  // Comment 3️⃣
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  // Comment 1️⃣
+  "foo": [
+    1,
+    2
+  ],
+  "quux": {},
+  "qux": [] // Comment 4️⃣
+}
+"
+`;
+
+exports[`JSON.stringify > expands input embedded in Markdown 1`] = `
+"\`\`\`json
+{
+  "foo": [
+    1,
+    2
+  ],
+  "bar": [
+    3
+  ],
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  "qux": [],
+  "quux": {}
+}
+\`\`\`
+"
+`;
+
+exports[`JSON.stringify > expands non-empty arrays and objects 1`] = `
 "{
   "foo": [
     1,
@@ -20,67 +176,7 @@ exports[`JSON > expands non-empty arrays and objects 1`] = `
 "
 `;
 
-exports[`JSON > respects \`tabWidth\` 1`] = `
-"{
-    "foo": [
-        1,
-        2
-    ],
-    "bar": [
-        3
-    ],
-    "baz": {
-        "values": [
-            4
-        ]
-    },
-    "qux": [],
-    "quux": {}
-}
-"
-`;
-
-exports[`JSON > respects \`useTabs\` 1`] = `
-"{
-	"foo": [
-		1,
-		2
-	],
-	"bar": [
-		3
-	],
-	"baz": {
-		"values": [
-			4
-		]
-	},
-	"qux": [],
-	"quux": {}
-}
-"
-`;
-
-exports[`JSON > works with other plugins 1`] = `
-"{
-  "bar": [
-    3
-  ],
-  "baz": {
-    "values": [
-      4
-    ]
-  },
-  "foo": [
-    1,
-    2
-  ],
-  "quux": {},
-  "qux": []
-}
-"
-`;
-
-exports[`JSON.stringify > expands non-empty arrays and objects 1`] = `
+exports[`JSON.stringify > formats in standalone mode 1`] = `
 "{
   "foo": [
     1,
@@ -150,6 +246,30 @@ exports[`JSON.stringify > works with other plugins 1`] = `
 "
 `;
 
+exports[`JSONC > expands input embedded in Markdown 1`] = `
+"\`\`\`jsonc
+{
+  // Comment 1️⃣
+  "foo": [
+    1,
+    2,
+  ],
+  "bar": /* Comment 2️⃣ */ [
+    3,
+  ],
+  // Comment 3️⃣
+  "baz": {
+    "values": [
+      4,
+    ],
+  },
+  "qux": [], // Comment 4️⃣
+  "quux": {},
+}
+\`\`\`
+"
+`;
+
 exports[`JSONC > expands non-empty arrays and objects 1`] = `
 "{
   // Comment 1️⃣
@@ -157,17 +277,39 @@ exports[`JSONC > expands non-empty arrays and objects 1`] = `
     1,
     2,
   ],
-  "bar": [
+  "bar": /* Comment 2️⃣ */ [
     3,
   ],
-  // Comment 2️⃣
+  // Comment 3️⃣
   "baz": {
     "values": [
       4,
     ],
   },
-  "qux": [], // Comment 3️⃣
+  "qux": [], // Comment 4️⃣
   "quux": {},
+}
+"
+`;
+
+exports[`JSONC > formats in standalone mode 1`] = `
+"{
+  // Comment 1️⃣
+  "foo": [
+    1,
+    2
+  ],
+  "bar": /* Comment 2️⃣ */ [
+    3
+  ],
+  // Comment 3️⃣
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  "qux": [], // Comment 4️⃣
+  "quux": {}
 }
 "
 `;
@@ -179,16 +321,16 @@ exports[`JSONC > respects \`tabWidth\` 1`] = `
         1,
         2,
     ],
-    "bar": [
+    "bar": /* Comment 2️⃣ */ [
         3,
     ],
-    // Comment 2️⃣
+    // Comment 3️⃣
     "baz": {
         "values": [
             4,
         ],
     },
-    "qux": [], // Comment 3️⃣
+    "qux": [], // Comment 4️⃣
     "quux": {},
 }
 "
@@ -201,16 +343,16 @@ exports[`JSONC > respects \`trailingComma\` 1`] = `
     1,
     2,
   ],
-  "bar": [
+  "bar": /* Comment 2️⃣ */ [
     3,
   ],
-  // Comment 2️⃣
+  // Comment 3️⃣
   "baz": {
     "values": [
       4,
     ],
   },
-  "qux": [], // Comment 3️⃣
+  "qux": [], // Comment 4️⃣
   "quux": {},
 }
 "
@@ -223,16 +365,16 @@ exports[`JSONC > respects \`trailingComma\` 2`] = `
     1,
     2
   ],
-  "bar": [
+  "bar": /* Comment 2️⃣ */ [
     3
   ],
-  // Comment 2️⃣
+  // Comment 3️⃣
   "baz": {
     "values": [
       4
     ]
   },
-  "qux": [], // Comment 3️⃣
+  "qux": [], // Comment 4️⃣
   "quux": {}
 }
 "
@@ -245,16 +387,16 @@ exports[`JSONC > respects \`useTabs\` 1`] = `
 		1,
 		2,
 	],
-	"bar": [
+	"bar": /* Comment 2️⃣ */ [
 		3,
 	],
-	// Comment 2️⃣
+	// Comment 3️⃣
 	"baz": {
 		"values": [
 			4,
 		],
 	},
-	"qux": [], // Comment 3️⃣
+	"qux": [], // Comment 4️⃣
 	"quux": {},
 }
 "
