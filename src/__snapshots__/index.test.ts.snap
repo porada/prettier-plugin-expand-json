@@ -46,7 +46,29 @@ exports[`JSON > expands non-empty arrays and objects 1`] = `
 "
 `;
 
-exports[`JSON > formats in standalone mode 1`] = `
+exports[`JSON > formats in standalone mode with bundled parser and printer fallbacks 1`] = `
+"{
+  // Comment 1️⃣
+  "foo": [
+    1,
+    2
+  ],
+  "bar": /* Comment 2️⃣ */ [
+    3
+  ],
+  // Comment 3️⃣
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  "qux": [], // Comment 4️⃣
+  "quux": {}
+}
+"
+`;
+
+exports[`JSON > formats in standalone mode with native plugins 1`] = `
 "{
   // Comment 1️⃣
   "foo": [
@@ -176,7 +198,27 @@ exports[`JSON.stringify > expands non-empty arrays and objects 1`] = `
 "
 `;
 
-exports[`JSON.stringify > formats in standalone mode 1`] = `
+exports[`JSON.stringify > formats in standalone mode with bundled parser and printer fallbacks 1`] = `
+"{
+  "foo": [
+    1,
+    2
+  ],
+  "bar": [
+    3
+  ],
+  "baz": {
+    "values": [
+      4
+    ]
+  },
+  "qux": [],
+  "quux": {}
+}
+"
+`;
+
+exports[`JSON.stringify > formats in standalone mode with native plugins 1`] = `
 "{
   "foo": [
     1,
@@ -292,24 +334,46 @@ exports[`JSONC > expands non-empty arrays and objects 1`] = `
 "
 `;
 
-exports[`JSONC > formats in standalone mode 1`] = `
+exports[`JSONC > formats in standalone mode with bundled parser and printer fallbacks 1`] = `
 "{
   // Comment 1️⃣
   "foo": [
     1,
-    2
+    2,
   ],
   "bar": /* Comment 2️⃣ */ [
-    3
+    3,
   ],
   // Comment 3️⃣
   "baz": {
     "values": [
-      4
-    ]
+      4,
+    ],
   },
   "qux": [], // Comment 4️⃣
-  "quux": {}
+  "quux": {},
+}
+"
+`;
+
+exports[`JSONC > formats in standalone mode with native plugins 1`] = `
+"{
+  // Comment 1️⃣
+  "foo": [
+    1,
+    2,
+  ],
+  "bar": /* Comment 2️⃣ */ [
+    3,
+  ],
+  // Comment 3️⃣
+  "baz": {
+    "values": [
+      4,
+    ],
+  },
+  "qux": [], // Comment 4️⃣
+  "quux": {},
 }
 "
 `;

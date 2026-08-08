@@ -1,14 +1,17 @@
 import type { Parser, ParserOptions, Plugin } from 'prettier';
 import type { ParserName } from './types/index.d.ts';
 import { parsers as babelParsers } from 'prettier/plugins/babel';
-import { printers as estreePrinters } from 'prettier/plugins/estree';
+import * as pluginEstree from 'prettier/plugins/estree';
 import {
 	callParserWithCompatibility,
 	createPriorParserResolver,
 	markParserAsExpandJSON,
 	withPriorParserOptions,
-} from './parser-utilities/index.ts';
+} from './plugin-hooks/index.ts';
 import printExpandedJSON from './print-expanded-json/index.ts';
+
+const estreeOptions = (pluginEstree as Plugin).options!;
+const { printers: estreePrinters } = pluginEstree;
 
 const EXPANDED_ESTREE_FORMAT = 'estree-expand-json';
 
@@ -17,14 +20,18 @@ function createParser(name: ParserName): Parser {
 		text: string,
 		options: ParserOptions
 	): Promise<unknown> {
-		const priorParser = await resolvePriorParser(options);
+		const resolvedPriorParser = await resolvePriorParser(options, 'parse');
+		const priorParser = resolvedPriorParser?.parser;
 
-		if (priorParser) {
+		if (
+			resolvedPriorParser &&
+			priorParser &&
+			typeof priorParser.parse === 'function' &&
+			priorParser.parse !== parse
+		) {
 			return withPriorParserOptions(
-				name,
 				options,
-				parse,
-				priorParser,
+				resolvedPriorParser,
 				(delegatedOptions) =>
 					callParserWithCompatibility(
 						priorParser,
@@ -37,25 +44,27 @@ function createParser(name: ParserName): Parser {
 		return await babelParsers[name].parse(text, options);
 	}
 
-	const resolvePriorParser = createPriorParserResolver(
-		name,
-		parse,
-		babelParsers[name].astFormat
-	);
-
 	const preprocess: NonNullable<Parser['preprocess']> = async (
 		text: string,
 		options: ParserOptions
 	) => {
-		const priorParser = await resolvePriorParser(options);
+		const resolvedPriorParser = await resolvePriorParser(
+			options,
+			'preprocess'
+		);
+
+		const priorParser = resolvedPriorParser?.parser;
 		const priorPreprocess = priorParser?.preprocess;
 
-		if (priorParser && typeof priorPreprocess === 'function') {
+		if (
+			resolvedPriorParser &&
+			priorParser &&
+			typeof priorPreprocess === 'function' &&
+			priorPreprocess !== preprocess
+		) {
 			return withPriorParserOptions(
-				name,
 				options,
-				parse,
-				priorParser,
+				resolvedPriorParser,
 				(delegatedOptions): Promise<string> | string =>
 					priorPreprocess.call(priorParser, text, delegatedOptions)
 			);
@@ -64,7 +73,7 @@ function createParser(name: ParserName): Parser {
 		return text;
 	};
 
-	return markParserAsExpandJSON({
+	const parser: Parser = {
 		...babelParsers[name],
 		astFormat:
 			name === 'json-stringify'
@@ -72,7 +81,15 @@ function createParser(name: ParserName): Parser {
 				: EXPANDED_ESTREE_FORMAT,
 		parse,
 		preprocess,
-	});
+	};
+
+	const resolvePriorParser = createPriorParserResolver(
+		name,
+		babelParsers[name].astFormat,
+		parser
+	);
+
+	return markParserAsExpandJSON(parser);
 }
 
 export const parsers: Plugin['parsers'] = {
@@ -88,3 +105,5 @@ export const printers: Plugin['printers'] = {
 	},
 	'estree-json': estreePrinters['estree-json'],
 };
+
+export const options: Plugin['options'] = { ...estreeOptions };
