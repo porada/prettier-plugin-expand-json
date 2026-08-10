@@ -45,8 +45,10 @@ describe.each(TESTS)('%s', (_, parser, input, markdownLanguage) => {
 
 	test('expands non-empty arrays and objects', async () => {
 		const output = await format(input, {
+			objectWrap: 'collapse',
 			parser,
 			plugins: [pluginExpandJSON],
+			printWidth: Number.POSITIVE_INFINITY,
 		});
 
 		expect(output).toMatchSnapshot();
@@ -111,6 +113,29 @@ describe.each(TESTS)('%s', (_, parser, input, markdownLanguage) => {
 		expect(formatted).not.toBe(input);
 		expect(formatted[formattedCursorOffset]).toBe('§');
 		expect(formattedCursorOffset).toBe(formatted.indexOf('§'));
+	});
+
+	test('respects `embeddedLanguageFormatting`', async () => {
+		const embeddedInput = `\`\`\`${markdownLanguage}\n${input}\n\`\`\`\n`;
+
+		const output = await format(embeddedInput, {
+			embeddedLanguageFormatting: 'off',
+			parser: 'markdown',
+			plugins: [pluginExpandJSON],
+		});
+
+		expect(output).toBe(embeddedInput);
+	});
+
+	test('respects `endOfLine`', async () => {
+		const output = await format(input, {
+			endOfLine: 'crlf',
+			parser,
+			plugins: [pluginExpandJSON],
+		});
+
+		expect(output).toContain('\r\n');
+		expect(output).not.toMatch(/(^|[^\r])\n/);
 	});
 
 	if (parser === 'jsonc') {
@@ -301,6 +326,19 @@ ${selectedInput},
 
 		expect(output).toBe('');
 	});
+
+	if (parser === 'jsonc') {
+		test('preserves comment-only files', async () => {
+			const input = '// Comment\n';
+
+			const output = await format(input, {
+				parser,
+				plugins: [pluginExpandJSON],
+			});
+
+			expect(output).toBe(input);
+		});
+	}
 
 	test('formats in standalone mode with bundled parser and printer fallbacks', async () => {
 		const output = await standaloneFormat(input, {
