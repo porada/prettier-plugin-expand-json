@@ -29,7 +29,7 @@
 	"engines": {
 		"node": ">=20"
 	},
-	"packageManager": "pnpm@11.20.0",
+	"packageManager": "pnpm@11.22.0",
 	"peerDependencies": {
 		"prettier": ">=3"
 	},
@@ -54,7 +54,7 @@
 		"lint": "vp lint --fix",
 		"lint:check": "vp lint --deny-warnings --type-check",
 		"prepack": "pnpm run '/^(format:check|lint:check|test|typecheck)$/' && pnpm build",
-		"prepare": "vp config",
+		"prepare": "vp config --hooks-dir .hooks",
 		"test": "vp test",
 		"typecheck": "tsc --noEmit"
 	}
