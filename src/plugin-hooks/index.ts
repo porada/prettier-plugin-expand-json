@@ -1,5 +1,6 @@
 import type { Parser, ParserOptions } from 'prettier';
 import type {
+	ParserDelegation,
 	ParserHookName,
 	ParserName,
 	ParseWithCompatibility,
@@ -7,14 +8,34 @@ import type {
 	ResolvedPriorParser,
 } from '../types/index.d.ts';
 
+const EXPAND_JSON_PARSER_DELEGATION = Symbol.for(
+	'prettier-plugin-expand-json.parser-delegation'
+);
 const EXPAND_JSON_PARSER_MARKER = Symbol.for(
 	'prettier-plugin-expand-json.parser'
 );
+const EXPAND_JSON_PARSER_ORIGIN = Symbol.for(
+	'prettier-plugin-expand-json.parser-origin'
+);
+
+type ParserContext = {
+	delegation?: ParserDelegation;
+	snapshot: Pick<ParserOptions, 'locEnd' | 'locStart' | 'plugins'>;
+	syncOptions: () => void;
+};
+
+type ParserOptionsWithContext = ParserOptions & {
+	[EXPAND_JSON_PARSER_DELEGATION]?: ParserContext;
+};
+
+type ParserOrigin = Pick<Parser, 'parse' | 'preprocess'>;
 
 type ResolverState = {
-	locationState: ResolvedPriorParser['locationState'];
+	entryOptions: NonNullable<ResolvedPriorParser['entryOptions']>;
+	lifecycleState: ResolvedPriorParser['lifecycleState'];
 	name: string;
 	parserByPluginIndex: Map<number, Promise<Parser>>;
+	parserName: ParserName;
 	plugins: ParserOptions['plugins'];
 	priorParserByHook: Map<
 		ParserHookName,
@@ -27,6 +48,13 @@ type ResolverState = {
  */
 export function markParserAsExpandJSON(parser: Parser): Parser {
 	Object.defineProperty(parser, EXPAND_JSON_PARSER_MARKER, { value: true });
+	Object.defineProperty(parser, EXPAND_JSON_PARSER_ORIGIN, {
+		enumerable: true,
+		value: {
+			parse: parser.parse,
+			preprocess: parser.preprocess,
+		} satisfies ParserOrigin,
+	});
 	return parser;
 }
 
@@ -65,18 +93,53 @@ export function createPriorParserResolver(
 	const resolverStateByOptions = new WeakMap<ParserOptions, ResolverState>();
 
 	return async (options, hook) => {
+		const context = (options as ParserOptionsWithContext)[
+			EXPAND_JSON_PARSER_DELEGATION
+		];
+		const delegation = context?.delegation;
+
+		if (delegation?.hook === hook && delegation.parserName === name) {
+			return delegation.resolveNext();
+		}
+
 		let state = resolverStateByOptions.get(options);
 
 		if (!state) {
 			state = {
-				locationState: {},
+				entryOptions: {
+					locEnd: currentParser.locEnd,
+					locStart: currentParser.locStart,
+					plugins: options.plugins,
+				},
+				lifecycleState: {},
 				name:
 					typeof options.parser === 'string' ? options.parser : name,
 				parserByPluginIndex: new Map(),
+				parserName: name,
 				plugins: options.plugins,
 				priorParserByHook: new Map(),
 			};
 			resolverStateByOptions.set(options, state);
+		}
+
+		if (!context) {
+			const { entryOptions, lifecycleState } = state;
+
+			if (options.locEnd !== entryOptions.locEnd) {
+				lifecycleState.locEnd = options.locEnd;
+			}
+
+			if (options.locStart !== entryOptions.locStart) {
+				lifecycleState.locStart = options.locStart;
+			}
+
+			if (options.plugins !== entryOptions.plugins) {
+				lifecycleState.plugins = options.plugins;
+			}
+
+			entryOptions.locEnd = options.locEnd;
+			entryOptions.locStart = options.locStart;
+			entryOptions.plugins = options.plugins;
 		}
 
 		const cachedParser = state.priorParserByHook.get(hook);
@@ -88,7 +151,6 @@ export function createPriorParserResolver(
 
 		const parser = findPriorParser(
 			state,
-			state.name,
 			hook,
 			currentParser,
 			expectedAstFormat
@@ -107,14 +169,17 @@ export function createPriorParserResolver(
  */
 async function findPriorParser(
 	state: ResolverState,
-	name: string,
 	hook: ParserHookName,
 	currentParser: Parser,
-	expectedAstFormat: string
+	expectedAstFormat: string,
+	beforeIndex = state.plugins.length,
+	omittedPluginIndexes = new Set<number>(),
+	rootEntry = true
 ): Promise<ResolvedPriorParser | undefined> {
-	const omittedPluginIndexes = new Set<number>();
+	const { name } = state;
+	let isEntry = rootEntry;
 
-	for (let index = state.plugins.length - 1; index >= 0; index -= 1) {
+	for (let index = beforeIndex - 1; index >= 0; index -= 1) {
 		const plugin = state.plugins[index];
 
 		if (!hasParsers(plugin) || !Object.hasOwn(plugin.parsers, name)) {
@@ -128,6 +193,8 @@ async function findPriorParser(
 		}
 
 		const parser = await resolveParser(state, index, parserOrInitializer);
+		const isSelectedParser = isEntry;
+		isEntry = false;
 
 		if (isExpandJSONParser(parser)) {
 			omittedPluginIndexes.add(index);
@@ -137,8 +204,15 @@ async function findPriorParser(
 		assertCompatibleParser(name, parser, expectedAstFormat, currentParser);
 
 		const parserHook = parser[hook];
+		const origin = Reflect.get(parser, EXPAND_JSON_PARSER_ORIGIN) as
+			ParserOrigin | undefined;
 
-		if (parserHook === currentParser[hook]) {
+		// Prettier has already invoked a copied wrapper in the selected slot
+		if (
+			(isSelectedParser && origin !== undefined) ||
+			parserHook === currentParser[hook] ||
+			(origin !== undefined && parserHook === origin[hook])
+		) {
 			omittedPluginIndexes.add(index);
 			continue;
 		}
@@ -147,12 +221,40 @@ async function findPriorParser(
 			return undefined;
 		}
 
+		const omittedPlugins = new Set(
+			[...omittedPluginIndexes].map(
+				(omittedIndex) => state.plugins[omittedIndex]
+			)
+		);
+		let nextParser: Promise<ResolvedPriorParser | undefined> | undefined;
+
 		return {
-			locationState: state.locationState,
+			delegation: {
+				hook,
+				parserName: state.parserName,
+				resolveNext: async () => {
+					nextParser ??= findPriorParser(
+						state,
+						hook,
+						currentParser,
+						expectedAstFormat,
+						index,
+						new Set([...omittedPluginIndexes, index]),
+						false
+					);
+					const resolvedNextParser = await nextParser;
+					return resolvedNextParser;
+				},
+			},
+			entryOptions: state.entryOptions,
+			lifecycleState: state.lifecycleState,
 			parser,
-			plugins: state.plugins.filter(
-				(_, index) => !omittedPluginIndexes.has(index)
-			),
+			get plugins() {
+				const plugins = state.lifecycleState.plugins ?? state.plugins;
+				return plugins.some((plugin) => omittedPlugins.has(plugin))
+					? plugins.filter((plugin) => !omittedPlugins.has(plugin))
+					: plugins;
+			},
 		};
 	}
 
@@ -233,19 +335,23 @@ function hasParsers(plugin: unknown): plugin is PluginWithParsers {
 }
 
 /**
- * Invokes a callback with options configured for the prior parser.
+ * Preserves lifecycle changes while invoking a prior hook.
+ * Only a successful parse adopts the parser’s unchanged location functions.
  */
 export async function withPriorParserOptions<T>(
 	options: ParserOptions,
 	priorParser: ResolvedPriorParser,
 	callback: (options: ParserOptions) => T
 ): Promise<Awaited<T>> {
-	const { astFormat, locEnd, locStart, plugins } = options;
+	const parserOptions = options as ParserOptionsWithContext;
+	const previousContext = parserOptions[EXPAND_JSON_PARSER_DELEGATION];
+	previousContext?.syncOptions();
 
-	const delegatedLocEnd =
-		priorParser.locationState.locEnd ?? priorParser.parser.locEnd;
+	const { astFormat, locEnd, locStart, plugins } = options;
+	const { entryOptions, lifecycleState } = priorParser;
+	const delegatedLocEnd = lifecycleState.locEnd ?? priorParser.parser.locEnd;
 	const delegatedLocStart =
-		priorParser.locationState.locStart ?? priorParser.parser.locStart;
+		lifecycleState.locStart ?? priorParser.parser.locStart;
 	const delegatedPlugins = priorParser.plugins;
 
 	options.astFormat = priorParser.parser.astFormat;
@@ -253,23 +359,78 @@ export async function withPriorParserOptions<T>(
 	options.locStart = delegatedLocStart;
 	options.plugins = delegatedPlugins;
 
+	const context: ParserContext = {
+		delegation: priorParser.delegation,
+		snapshot: {
+			locEnd: delegatedLocEnd,
+			locStart: delegatedLocStart,
+			plugins: delegatedPlugins,
+		},
+		syncOptions: () => {
+			if (options.locEnd !== context.snapshot.locEnd) {
+				lifecycleState.locEnd = options.locEnd;
+			}
+
+			if (options.locStart !== context.snapshot.locStart) {
+				lifecycleState.locStart = options.locStart;
+			}
+
+			if (options.plugins !== context.snapshot.plugins) {
+				lifecycleState.plugins = options.plugins;
+			}
+
+			context.snapshot = {
+				locEnd: options.locEnd,
+				locStart: options.locStart,
+				plugins: options.plugins,
+			};
+		},
+	};
+	parserOptions[EXPAND_JSON_PARSER_DELEGATION] = context;
+	let parsedLocations: Pick<ParserOptions, 'locEnd' | 'locStart'> | undefined;
+
 	try {
-		return await callback(options);
+		const result = await callback(options);
+
+		if (context.delegation?.hook === 'parse') {
+			parsedLocations = {
+				locEnd: options.locEnd,
+				locStart: options.locStart,
+			};
+		}
+
+		return result;
 	} finally {
-		if (options.locEnd !== delegatedLocEnd) {
-			priorParser.locationState.locEnd = options.locEnd;
-		}
-
-		if (options.locStart !== delegatedLocStart) {
-			priorParser.locationState.locStart = options.locStart;
-		}
-
+		context.syncOptions();
 		options.astFormat = astFormat;
-		options.locEnd = priorParser.locationState.locEnd ?? locEnd;
-		options.locStart = priorParser.locationState.locStart ?? locStart;
+		options.locEnd =
+			lifecycleState.locEnd ?? parsedLocations?.locEnd ?? locEnd;
+		options.locStart =
+			lifecycleState.locStart ?? parsedLocations?.locStart ?? locStart;
 
 		if (options.plugins === delegatedPlugins) {
 			options.plugins = plugins;
+		}
+
+		if (previousContext) {
+			// Nested handoffs are defaults, not explicit hook overrides
+			previousContext.snapshot = {
+				locEnd: options.locEnd,
+				locStart: options.locStart,
+				plugins: options.plugins,
+			};
+			parserOptions[EXPAND_JSON_PARSER_DELEGATION] = previousContext;
+		} else {
+			if (entryOptions) {
+				entryOptions.locEnd = options.locEnd;
+				entryOptions.locStart = options.locStart;
+				entryOptions.plugins = options.plugins;
+			}
+
+			Reflect.deleteProperty(
+				parserOptions,
+				EXPAND_JSON_PARSER_DELEGATION
+			);
 		}
 	}
 }
