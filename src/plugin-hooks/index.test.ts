@@ -11,7 +11,7 @@ const TEST_JSON = '{"foo":[1]}';
 
 function getDirectParser(
 	plugin: typeof pluginExpandJSON,
-	parserName: 'json' | 'jsonc'
+	parserName: 'json' | 'json-stringify' | 'jsonc'
 ): Parser {
 	const parser = plugin.parsers?.[parserName];
 
@@ -700,6 +700,128 @@ test('ignores plugins with an `undefined` parser map', async () => {
 
 	expect(output).toBe(expectedOutput);
 });
+
+test.each(['json', 'json-stringify', 'jsonc'] as const)(
+	'runs lazy copied `%s` hooks once in every plugin order',
+	async (parserName) => {
+		for (const placement of ['after', 'alone', 'before'] as const) {
+			const parser = getDirectParser(pluginExpandJSON, parserName);
+			const parse = vi.fn(function (
+				this: Parser,
+				text: string,
+				options: ParserOptions
+			) {
+				return parser.parse.call(this, text, options);
+			});
+			const preprocess = vi.fn(function (
+				this: Parser,
+				text: string,
+				options: ParserOptions
+			): Promise<string> | string {
+				return parser.preprocess!.call(
+					this,
+					text.replace('[', '[2,'),
+					options
+				);
+			});
+
+			const wrapperPlugin = {
+				parsers: {
+					[parserName]: async () => {
+						await Promise.resolve();
+						return { ...parser, parse, preprocess };
+					},
+				},
+				printers: pluginExpandJSON.printers,
+			} as unknown as Plugin;
+
+			const expectedOutput = await format('{"foo":[2,1]}', {
+				parser: parserName,
+				plugins: [pluginExpandJSON],
+			});
+
+			const plugins = {
+				after: [pluginExpandJSON, wrapperPlugin],
+				alone: [wrapperPlugin],
+				before: [wrapperPlugin, pluginExpandJSON],
+			}[placement];
+
+			const output = await format(TEST_JSON, {
+				parser: parserName,
+				plugins,
+			});
+
+			expect(parse).toHaveBeenCalledTimes(1);
+			expect(preprocess).toHaveBeenCalledTimes(1);
+			expect(output).toBe(expectedOutput);
+		}
+	}
+);
+
+test.each(['json', 'json-stringify', 'jsonc'] as const)(
+	'runs copied `%s` hooks after plugin list replacement with this plugin last',
+	async (parserName) => {
+		for (const hook of ['parse', 'preprocess'] as const) {
+			for (const preserveReceiver of [false, true]) {
+				const parser = getDirectParser(pluginExpandJSON, parserName);
+				const priorHook = vi.fn(
+					(text: string, options: ParserOptions) =>
+						parser[hook]!(text.replace('[', '[2,'), options)
+				);
+
+				const innerPlugin: Plugin = {
+					parsers: {
+						[parserName]: {
+							...parser,
+							[hook]: priorHook,
+						},
+					},
+					printers: pluginExpandJSON.printers,
+				};
+
+				const outerPlugin: Plugin = {
+					parsers: {
+						[parserName]: {
+							...parser,
+							preprocess(
+								text,
+								options
+							): Promise<string> | string {
+								options.plugins = [innerPlugin];
+
+								if (hook === 'parse') {
+									return text;
+								}
+
+								return preserveReceiver
+									? parser.preprocess!.call(
+											this,
+											text,
+											options
+										)
+									: parser.preprocess!(text, options);
+							},
+						},
+					},
+					printers: pluginExpandJSON.printers,
+				};
+
+				const expectedOutput = await format('{"foo":[2,1]}', {
+					parser: parserName,
+					plugins: [pluginExpandJSON],
+				});
+
+				const output = await format(TEST_JSON, {
+					parser: parserName,
+					plugins: [innerPlugin, outerPlugin, pluginExpandJSON],
+				});
+
+				expect(priorHook).toHaveBeenCalledTimes(1);
+				expect(output).toBe(expectedOutput);
+			}
+		}
+	}
+);
 
 test('preserves parser lifecycle state after plugin list reassignment', async () => {
 	let initializationCount = 0;
