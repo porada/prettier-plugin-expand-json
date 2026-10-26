@@ -54,7 +54,7 @@ test('expands non-empty arrays and objects', async () => {
 });
 
 test('preserves dangling comments in arrays', async () => {
-	const output = await format('{"foo":[/* Comment 1️⃣ */]}', {
+	const output = await format('{"foo":[/* Comment */]}', {
 		parser: 'jsonc',
 		plugins: [plugin],
 	});
@@ -62,7 +62,7 @@ test('preserves dangling comments in arrays', async () => {
 	expect(output).toMatchInlineSnapshot(`
 		"{
 		  "foo": [
-		    /* Comment 1️⃣ */
+		    /* Comment */
 		  ],
 		}
 		"
@@ -70,7 +70,7 @@ test('preserves dangling comments in arrays', async () => {
 });
 
 test('preserves dangling comments in nested containers', async () => {
-	const output = await format('{"baz":[{/* Comment 3️⃣ */}]}', {
+	const output = await format('{"baz":[{/* Comment */}]}', {
 		parser: 'jsonc',
 		plugins: [plugin],
 	});
@@ -79,7 +79,7 @@ test('preserves dangling comments in nested containers', async () => {
 		"{
 		  "baz": [
 		    {
-		      /* Comment 3️⃣ */
+		      /* Comment */
 		    },
 		  ],
 		}
@@ -88,7 +88,7 @@ test('preserves dangling comments in nested containers', async () => {
 });
 
 test('preserves dangling comments in objects', async () => {
-	const output = await format('{"bar":{/* Comment 2️⃣ */}}', {
+	const output = await format('{"bar":{/* Comment */}}', {
 		parser: 'jsonc',
 		plugins: [plugin],
 	});
@@ -96,7 +96,7 @@ test('preserves dangling comments in objects', async () => {
 	expect(output).toMatchInlineSnapshot(`
 		"{
 		  "bar": {
-		    /* Comment 2️⃣ */
+		    /* Comment */
 		  },
 		}
 		"

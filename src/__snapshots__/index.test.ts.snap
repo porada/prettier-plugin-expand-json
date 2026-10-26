@@ -3,22 +3,22 @@
 exports[`JSON > expands input embedded in Markdown 1`] = `
 "\`\`\`json
 {
-  // Comment 1️⃣
+  // Comment 1
   "foo": [
     1,
     2
   ],
-  "bar": /* Comment 2️⃣ */ [
+  "bar": /* Comment 2 */ [
     3
   ],
-  // Comment 3️⃣
+  // Comment 3
   "baz": {
-    "values": [
+    "qux": [
       4
     ]
   },
-  "qux": [], // Comment 4️⃣
-  "quux": {}
+  "quux": [], // Comment 4
+  "corge": {}
 }
 \`\`\`
 "
@@ -26,132 +26,88 @@ exports[`JSON > expands input embedded in Markdown 1`] = `
 
 exports[`JSON > expands non-empty arrays and objects 1`] = `
 "{
-  // Comment 1️⃣
+  // Comment 1
   "foo": [
     1,
     2
   ],
-  "bar": /* Comment 2️⃣ */ [
+  "bar": /* Comment 2 */ [
     3
   ],
-  // Comment 3️⃣
+  // Comment 3
   "baz": {
-    "values": [
+    "qux": [
       4
     ]
   },
-  "qux": [], // Comment 4️⃣
-  "quux": {}
-}
-"
-`;
-
-exports[`JSON > formats in standalone mode with bundled parser and printer fallbacks 1`] = `
-"{
-  // Comment 1️⃣
-  "foo": [
-    1,
-    2
-  ],
-  "bar": /* Comment 2️⃣ */ [
-    3
-  ],
-  // Comment 3️⃣
-  "baz": {
-    "values": [
-      4
-    ]
-  },
-  "qux": [], // Comment 4️⃣
-  "quux": {}
-}
-"
-`;
-
-exports[`JSON > formats in standalone mode with native plugins 1`] = `
-"{
-  // Comment 1️⃣
-  "foo": [
-    1,
-    2
-  ],
-  "bar": /* Comment 2️⃣ */ [
-    3
-  ],
-  // Comment 3️⃣
-  "baz": {
-    "values": [
-      4
-    ]
-  },
-  "qux": [], // Comment 4️⃣
-  "quux": {}
+  "quux": [], // Comment 4
+  "corge": {}
 }
 "
 `;
 
 exports[`JSON > respects \`tabWidth\` 1`] = `
 "{
-    // Comment 1️⃣
+    // Comment 1
     "foo": [
         1,
         2
     ],
-    "bar": /* Comment 2️⃣ */ [
+    "bar": /* Comment 2 */ [
         3
     ],
-    // Comment 3️⃣
+    // Comment 3
     "baz": {
-        "values": [
+        "qux": [
             4
         ]
     },
-    "qux": [], // Comment 4️⃣
-    "quux": {}
+    "quux": [], // Comment 4
+    "corge": {}
 }
 "
 `;
 
 exports[`JSON > respects \`useTabs\` 1`] = `
 "{
-	// Comment 1️⃣
+	// Comment 1
 	"foo": [
 		1,
 		2
 	],
-	"bar": /* Comment 2️⃣ */ [
+	"bar": /* Comment 2 */ [
 		3
 	],
-	// Comment 3️⃣
+	// Comment 3
 	"baz": {
-		"values": [
+		"qux": [
 			4
 		]
 	},
-	"qux": [], // Comment 4️⃣
-	"quux": {}
+	"quux": [], // Comment 4
+	"corge": {}
 }
 "
 `;
 
 exports[`JSON > works with other plugins 1`] = `
 "{
-  "bar": /* Comment 2️⃣ */ [
+  "bar": /* Comment 2 */ [
     3
   ],
-  // Comment 3️⃣
+  // Comment 3
   "baz": {
-    "values": [
+    "qux": [
       4
     ]
   },
-  // Comment 1️⃣
+  "corge": {},
+  // Comment 1
   "foo": [
     1,
     2
   ],
-  "quux": {},
-  "qux": [] // Comment 4️⃣
+  "quux": [] // Comment 4
 }
 "
 `;
@@ -167,12 +123,12 @@ exports[`JSON.stringify > expands input embedded in Markdown 1`] = `
     3
   ],
   "baz": {
-    "values": [
+    "qux": [
       4
     ]
   },
-  "qux": [],
-  "quux": {}
+  "quux": [],
+  "corge": {}
 }
 \`\`\`
 "
@@ -188,52 +144,12 @@ exports[`JSON.stringify > expands non-empty arrays and objects 1`] = `
     3
   ],
   "baz": {
-    "values": [
+    "qux": [
       4
     ]
   },
-  "qux": [],
-  "quux": {}
-}
-"
-`;
-
-exports[`JSON.stringify > formats in standalone mode with bundled parser and printer fallbacks 1`] = `
-"{
-  "foo": [
-    1,
-    2
-  ],
-  "bar": [
-    3
-  ],
-  "baz": {
-    "values": [
-      4
-    ]
-  },
-  "qux": [],
-  "quux": {}
-}
-"
-`;
-
-exports[`JSON.stringify > formats in standalone mode with native plugins 1`] = `
-"{
-  "foo": [
-    1,
-    2
-  ],
-  "bar": [
-    3
-  ],
-  "baz": {
-    "values": [
-      4
-    ]
-  },
-  "qux": [],
-  "quux": {}
+  "quux": [],
+  "corge": {}
 }
 "
 `;
@@ -248,12 +164,12 @@ exports[`JSON.stringify > respects \`tabWidth\` 1`] = `
         3
     ],
     "baz": {
-        "values": [
+        "qux": [
             4
         ]
     },
-    "qux": [],
-    "quux": {}
+    "quux": [],
+    "corge": {}
 }
 "
 `;
@@ -268,12 +184,12 @@ exports[`JSON.stringify > respects \`useTabs\` 1`] = `
 		3
 	],
 	"baz": {
-		"values": [
+		"qux": [
 			4
 		]
 	},
-	"qux": [],
-	"quux": {}
+	"quux": [],
+	"corge": {}
 }
 "
 `;
@@ -291,22 +207,22 @@ exports[`JSON.stringify > works with other plugins 1`] = `
 exports[`JSONC > expands input embedded in Markdown 1`] = `
 "\`\`\`jsonc
 {
-  // Comment 1️⃣
+  // Comment 1
   "foo": [
     1,
     2,
   ],
-  "bar": /* Comment 2️⃣ */ [
+  "bar": /* Comment 2 */ [
     3,
   ],
-  // Comment 3️⃣
+  // Comment 3
   "baz": {
-    "values": [
+    "qux": [
       4,
     ],
   },
-  "qux": [], // Comment 4️⃣
-  "quux": {},
+  "quux": [], // Comment 4
+  "corge": {},
 }
 \`\`\`
 "
@@ -314,154 +230,109 @@ exports[`JSONC > expands input embedded in Markdown 1`] = `
 
 exports[`JSONC > expands non-empty arrays and objects 1`] = `
 "{
-  // Comment 1️⃣
+  // Comment 1
   "foo": [
     1,
     2,
   ],
-  "bar": /* Comment 2️⃣ */ [
+  "bar": /* Comment 2 */ [
     3,
   ],
-  // Comment 3️⃣
+  // Comment 3
   "baz": {
-    "values": [
+    "qux": [
       4,
     ],
   },
-  "qux": [], // Comment 4️⃣
-  "quux": {},
-}
-"
-`;
-
-exports[`JSONC > formats in standalone mode with bundled parser and printer fallbacks 1`] = `
-"{
-  // Comment 1️⃣
-  "foo": [
-    1,
-    2,
-  ],
-  "bar": /* Comment 2️⃣ */ [
-    3,
-  ],
-  // Comment 3️⃣
-  "baz": {
-    "values": [
-      4,
-    ],
-  },
-  "qux": [], // Comment 4️⃣
-  "quux": {},
-}
-"
-`;
-
-exports[`JSONC > formats in standalone mode with native plugins 1`] = `
-"{
-  // Comment 1️⃣
-  "foo": [
-    1,
-    2,
-  ],
-  "bar": /* Comment 2️⃣ */ [
-    3,
-  ],
-  // Comment 3️⃣
-  "baz": {
-    "values": [
-      4,
-    ],
-  },
-  "qux": [], // Comment 4️⃣
-  "quux": {},
+  "quux": [], // Comment 4
+  "corge": {},
 }
 "
 `;
 
 exports[`JSONC > respects \`tabWidth\` 1`] = `
 "{
-    // Comment 1️⃣
+    // Comment 1
     "foo": [
         1,
         2,
     ],
-    "bar": /* Comment 2️⃣ */ [
+    "bar": /* Comment 2 */ [
         3,
     ],
-    // Comment 3️⃣
+    // Comment 3
     "baz": {
-        "values": [
+        "qux": [
             4,
         ],
     },
-    "qux": [], // Comment 4️⃣
-    "quux": {},
+    "quux": [], // Comment 4
+    "corge": {},
 }
 "
 `;
 
 exports[`JSONC > respects \`trailingComma\` 1`] = `
-"{
-  // Comment 1️⃣
+{
+  "all": "{
+  // Comment 1
   "foo": [
     1,
     2,
   ],
-  "bar": /* Comment 2️⃣ */ [
+  "bar": /* Comment 2 */ [
     3,
   ],
-  // Comment 3️⃣
+  // Comment 3
   "baz": {
-    "values": [
+    "qux": [
       4,
     ],
   },
-  "qux": [], // Comment 4️⃣
-  "quux": {},
+  "quux": [], // Comment 4
+  "corge": {},
 }
-"
-`;
-
-exports[`JSONC > respects \`trailingComma\` 2`] = `
-"{
-  // Comment 1️⃣
+",
+  "none": "{
+  // Comment 1
   "foo": [
     1,
     2
   ],
-  "bar": /* Comment 2️⃣ */ [
+  "bar": /* Comment 2 */ [
     3
   ],
-  // Comment 3️⃣
+  // Comment 3
   "baz": {
-    "values": [
+    "qux": [
       4
     ]
   },
-  "qux": [], // Comment 4️⃣
-  "quux": {}
+  "quux": [], // Comment 4
+  "corge": {}
 }
-"
+",
+}
 `;
 
 exports[`JSONC > respects \`useTabs\` 1`] = `
 "{
-	// Comment 1️⃣
+	// Comment 1
 	"foo": [
 		1,
 		2,
 	],
-	"bar": /* Comment 2️⃣ */ [
+	"bar": /* Comment 2 */ [
 		3,
 	],
-	// Comment 3️⃣
+	// Comment 3
 	"baz": {
-		"values": [
+		"qux": [
 			4,
 		],
 	},
-	"qux": [], // Comment 4️⃣
-	"quux": {},
+	"quux": [], // Comment 4
+	"corge": {},
 }
 "
 `;

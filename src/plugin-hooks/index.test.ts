@@ -3,7 +3,7 @@ import type { ResolvedPriorParser } from '../types/index.d.ts';
 import { format, formatWithCursor } from 'prettier';
 import { parsers as babelParsers } from 'prettier/plugins/babel';
 import { printers as estreePrinters } from 'prettier/plugins/estree';
-import { describe, expect, test, vi } from 'vite-plus/test';
+import { expect, test, vi } from 'vite-plus/test';
 import * as pluginExpandJSON from '../index.ts';
 import { createPriorParserResolver, withPriorParserOptions } from './index.ts';
 
@@ -16,7 +16,7 @@ function getDirectParser(
 	const parser = plugin.parsers?.[parserName];
 
 	if (!parser || typeof parser === 'function') {
-		throw new TypeError(`Expected a direct \`${parserName}\` parser.`);
+		throw new TypeError(`Expected a direct \`${parserName}\` parser`);
 	}
 
 	return parser;
@@ -26,6 +26,105 @@ function createJSONWrapperPlugin(parser: Parser): Plugin {
 	return {
 		parsers: { json: parser },
 		printers: pluginExpandJSON.printers,
+	};
+}
+
+function createLocationFunctions(): Pick<Parser, 'locEnd' | 'locStart'> {
+	return {
+		locEnd: (node) => babelParsers.json.locEnd(node),
+		locStart: (node) => babelParsers.json.locStart(node),
+	};
+}
+
+function createRejectionFixture() {
+	const parser = getDirectParser(pluginExpandJSON, 'json');
+	const delegationKey = Symbol.for(
+		'prettier-plugin-expand-json.parser-delegation'
+	);
+
+	const error = new Error();
+	let reject = true;
+	let wrapperCallCount = 0;
+
+	const nativeParse = vi.fn((text: string, options: ParserOptions) =>
+		babelParsers.json.parse(text, options)
+	);
+
+	const priorPlugin: Plugin = {
+		parsers: {
+			json: {
+				...babelParsers.json,
+				parse: nativeParse,
+			},
+		},
+	};
+
+	const wrapperPlugin = createJSONWrapperPlugin({
+		...parser,
+		parse: async (text, options) => {
+			wrapperCallCount += 1;
+
+			if (wrapperCallCount > 3) {
+				throw new Error();
+			}
+
+			const context: unknown = Reflect.get(options, delegationKey);
+
+			expect(context).toBeDefined();
+			expect(context).not.toBe(outerContext);
+
+			await Promise.resolve();
+			expect(Reflect.get(options, delegationKey)).toBe(context);
+
+			const ast: unknown = await parser.parse(text, options);
+
+			expect(Reflect.get(options, delegationKey)).toBe(context);
+
+			if (reject) {
+				throw error;
+			}
+
+			return ast;
+		},
+	});
+
+	const options = {
+		astFormat: parser.astFormat,
+		locEnd: parser.locEnd,
+		locStart: parser.locStart,
+		parser: 'json',
+		plugins: [priorPlugin, wrapperPlugin, pluginExpandJSON],
+	} as unknown as ParserOptions;
+
+	const outerContext = {
+		delegation: {
+			hook: 'preprocess',
+			parserName: 'json',
+			resolveNext: vi.fn(async () => {
+				await Promise.resolve();
+				return undefined;
+			}),
+		},
+		snapshot: {
+			locEnd: options.locEnd,
+			locStart: options.locStart,
+			plugins: options.plugins,
+		},
+		syncOptions: vi.fn(),
+	};
+
+	return {
+		allowParsing: (): void => {
+			reject = false;
+		},
+		delegationKey,
+		error,
+		getWrapperCallCount: (): number => wrapperCallCount,
+		nativeParse,
+		options,
+		originalPlugins: options.plugins,
+		outerContext,
+		parser,
 	};
 }
 
@@ -100,23 +199,20 @@ test('preserves the selected parser name between hooks', async () => {
 		plugins: [priorPlugin, pluginExpandJSON],
 	} as unknown as ParserOptions;
 
-	await expect(
-		resolvePriorParser(options, 'preprocess')
-	).resolves.toMatchObject({ parser: priorParser });
+	let result = await resolvePriorParser(options, 'preprocess');
+
+	expect(result?.parser).toBe(priorParser);
 
 	options.parser = 'jsonc';
 
-	await expect(resolvePriorParser(options, 'parse')).resolves.toMatchObject({
-		parser: priorParser,
-	});
+	result = await resolvePriorParser(options, 'parse');
+
+	expect(result?.parser).toBe(priorParser);
 });
 
 test('sets and restores prior parser location functions', async () => {
 	const currentParser = getDirectParser(pluginExpandJSON, 'json');
-
-	const locEnd: Parser['locEnd'] = (node) => babelParsers.json.locEnd(node);
-	const locStart: Parser['locStart'] = (node) =>
-		babelParsers.json.locStart(node);
+	const { locEnd, locStart } = createLocationFunctions();
 
 	const priorParser: Parser = {
 		...babelParsers.json,
@@ -135,16 +231,19 @@ test('sets and restores prior parser location functions', async () => {
 
 	const originalPlugins = options.plugins;
 
+	const callback = vi.fn(async (delegatedOptions: ParserOptions) => {
+		await Promise.resolve();
+		expect(delegatedOptions.locEnd).toBe(locEnd);
+		expect(delegatedOptions.locStart).toBe(locStart);
+	});
+
 	await withPriorParserOptions(
 		options,
 		{ lifecycleState: {}, parser: priorParser, plugins },
-		async (delegatedOptions) => {
-			await Promise.resolve();
-			expect(delegatedOptions.locEnd).toBe(locEnd);
-			expect(delegatedOptions.locStart).toBe(locStart);
-		}
+		callback
 	);
 
+	expect(callback).toHaveBeenCalledTimes(1);
 	expect(options.locEnd).toBe(currentParser.locEnd);
 	expect(options.locStart).toBe(currentParser.locStart);
 	expect(options.plugins).toBe(originalPlugins);
@@ -154,11 +253,7 @@ test.each(['parse', 'preprocess'] as const)(
 	'retains prior parser locations only after `%s` succeeds',
 	async (hook) => {
 		const currentParser = getDirectParser(pluginExpandJSON, 'json');
-
-		const locEnd: Parser['locEnd'] = (node) =>
-			babelParsers.json.locEnd(node);
-		const locStart: Parser['locStart'] = (node) =>
-			babelParsers.json.locStart(node);
+		const { locEnd, locStart } = createLocationFunctions();
 
 		const priorParser: Parser = { ...babelParsers.json, locEnd, locStart };
 
@@ -171,6 +266,14 @@ test.each(['parse', 'preprocess'] as const)(
 			locStart: currentParser.locStart,
 			plugins,
 		} as unknown as ParserOptions;
+
+		const callback = vi.fn(async (delegatedOptions: ParserOptions) => {
+			await Promise.resolve();
+			expect(delegatedOptions.locEnd).toBe(locEnd);
+			expect(delegatedOptions.locStart).toBe(locStart);
+
+			return TEST_JSON;
+		});
 
 		await expect(
 			withPriorParserOptions(
@@ -185,16 +288,11 @@ test.each(['parse', 'preprocess'] as const)(
 					parser: priorParser,
 					plugins: [],
 				},
-				async (delegatedOptions) => {
-					await Promise.resolve();
-					expect(delegatedOptions.locEnd).toBe(locEnd);
-					expect(delegatedOptions.locStart).toBe(locStart);
-
-					return TEST_JSON;
-				}
+				callback
 			)
 		).resolves.toBe(TEST_JSON);
 
+		expect(callback).toHaveBeenCalledTimes(1);
 		expect(options.astFormat).toBe(currentParser.astFormat);
 		expect(options.locEnd).toBe(
 			hook === 'parse' ? locEnd : currentParser.locEnd
@@ -211,11 +309,7 @@ test.each(['parse', 'preprocess'] as const)(
 	'restores prior parser options when `%s` rejects',
 	async (hook) => {
 		const currentParser = getDirectParser(pluginExpandJSON, 'json');
-
-		const locEnd: Parser['locEnd'] = (node) =>
-			babelParsers.json.locEnd(node);
-		const locStart: Parser['locStart'] = (node) =>
-			babelParsers.json.locStart(node);
+		const { locEnd, locStart } = createLocationFunctions();
 
 		const priorParser: Parser = { ...babelParsers.json, locEnd, locStart };
 
@@ -231,6 +325,14 @@ test.each(['parse', 'preprocess'] as const)(
 
 		const error = new Error();
 
+		const callback = vi.fn(async (delegatedOptions: ParserOptions) => {
+			await Promise.resolve();
+			expect(delegatedOptions.locEnd).toBe(locEnd);
+			expect(delegatedOptions.locStart).toBe(locStart);
+
+			throw error;
+		});
+
 		await expect(
 			withPriorParserOptions(
 				options,
@@ -244,16 +346,11 @@ test.each(['parse', 'preprocess'] as const)(
 					parser: priorParser,
 					plugins: [],
 				},
-				async (delegatedOptions) => {
-					await Promise.resolve();
-					expect(delegatedOptions.locEnd).toBe(locEnd);
-					expect(delegatedOptions.locStart).toBe(locStart);
-
-					throw error;
-				}
+				callback
 			)
 		).rejects.toBe(error);
 
+		expect(callback).toHaveBeenCalledTimes(1);
 		expect(options.astFormat).toBe(currentParser.astFormat);
 		expect(options.locEnd).toBe(currentParser.locEnd);
 		expect(options.locStart).toBe(currentParser.locStart);
@@ -266,11 +363,7 @@ test.each(['parse', 'preprocess'] as const)(
 	'preserves hook-written lifecycle changes when `%s` rejects',
 	async (hook) => {
 		const currentParser = getDirectParser(pluginExpandJSON, 'json');
-
-		const locEnd: Parser['locEnd'] = (node) =>
-			babelParsers.json.locEnd(node);
-		const locStart: Parser['locStart'] = (node) =>
-			babelParsers.json.locStart(node);
+		const { locEnd, locStart } = createLocationFunctions();
 
 		const replacementPlugins: ParserOptions['plugins'] = [];
 		const priorParser: Parser = { ...babelParsers.json, locEnd };
@@ -321,10 +414,7 @@ test.each(['parse', 'preprocess'] as const)(
 
 test('distinguishes adopted entry locations from explicit resets', async () => {
 	const currentParser = getDirectParser(pluginExpandJSON, 'json');
-
-	const locEnd: Parser['locEnd'] = (node) => babelParsers.json.locEnd(node);
-	const locStart: Parser['locStart'] = (node) =>
-		babelParsers.json.locStart(node);
+	const { locEnd, locStart } = createLocationFunctions();
 
 	const priorPlugin: Plugin = {
 		parsers: {
@@ -389,11 +479,7 @@ test.each(['parse', 'preprocess'] as const)(
 	'tracks entry option resets after `%s` rejects',
 	async (hook) => {
 		const currentParser = getDirectParser(pluginExpandJSON, 'json');
-
-		const locEnd: Parser['locEnd'] = (node) =>
-			babelParsers.json.locEnd(node);
-		const locStart: Parser['locStart'] = (node) =>
-			babelParsers.json.locStart(node);
+		const { locEnd, locStart } = createLocationFunctions();
 
 		const priorPlugin: Plugin = {
 			parsers: {
@@ -557,7 +643,7 @@ test('preserves plugin lists reassigned by prior parsers', async () => {
 });
 
 test.each(['json', 'jsonc'] as const)(
-	'works with independently loaded plugin copies using the `%s` parser',
+	'works with independently loaded plugin copies with the `%s` parser',
 	async (parserName) => {
 		vi.resetModules();
 
@@ -571,16 +657,16 @@ test.each(['json', 'jsonc'] as const)(
 
 		expect(firstParser.parse).not.toBe(secondParser.parse);
 
-		const singleCopyOutput = await format(TEST_JSON, {
+		const expectedOutput = await format(TEST_JSON, {
 			parser: parserName,
 			plugins: [secondPlugin],
 		});
-		const duplicateCopyOutput = await format(TEST_JSON, {
+		const output = await format(TEST_JSON, {
 			parser: parserName,
 			plugins: [firstPlugin, secondPlugin],
 		});
 
-		expect(duplicateCopyOutput).toBe(singleCopyOutput);
+		expect(output).toBe(expectedOutput);
 	}
 );
 
@@ -612,8 +698,8 @@ test('rejects prior parsers with incompatible AST formats', async () => {
 });
 
 test('passes compatible options to prior parsers', async () => {
-	let hasMatchingPrinter = false;
 	let observedAstFormat: unknown;
+	let observedPlugins: ParserOptions['plugins'] | undefined;
 	let observedPrintWidth: number | undefined;
 
 	const observingPlugin: Plugin = {
@@ -622,10 +708,8 @@ test('passes compatible options to prior parsers', async () => {
 				...babelParsers.jsonc,
 				parse: (text, options) => {
 					observedAstFormat = options.astFormat;
+					observedPlugins = options.plugins;
 					observedPrintWidth = options.printWidth;
-					hasMatchingPrinter =
-						options.astFormat === 'estree' &&
-						options.plugins.includes(observingPlugin);
 					return babelParsers.jsonc.parse(text, options);
 				},
 			},
@@ -641,27 +725,26 @@ test('passes compatible options to prior parsers', async () => {
 		printWidth: 80,
 	});
 
-	expect(hasMatchingPrinter).toBe(true);
 	expect(observedAstFormat).toBe('estree');
+	expect(observedPlugins).toContain(observingPlugin);
 	expect(observedPrintWidth).toBe(80);
 });
 
 test('shares options between prior `preprocess` and `parse` hooks', async () => {
-	let observedState = false;
+	const { locEnd, locStart } = createLocationFunctions();
 
-	const locEnd: Parser['locEnd'] = (node) => babelParsers.json.locEnd(node);
-	const locStart: Parser['locStart'] = (node) =>
-		babelParsers.json.locStart(node);
+	let observedExpandJSONState: unknown;
+	let observedLocEnd: Parser['locEnd'] | undefined;
+	let observedLocStart: Parser['locStart'] | undefined;
 
 	const statefulPlugin: Plugin = {
 		parsers: {
 			json: {
 				...babelParsers.json,
 				parse: (text, options) => {
-					observedState =
-						options.expandJSONState === true &&
-						options.locEnd === locEnd &&
-						options.locStart === locStart;
+					observedExpandJSONState = options.expandJSONState;
+					observedLocEnd = options.locEnd;
+					observedLocStart = options.locStart;
 					return babelParsers.json.parse(text, options);
 				},
 				preprocess: async (text, options) => {
@@ -680,7 +763,9 @@ test('shares options between prior `preprocess` and `parse` hooks', async () => 
 		plugins: [statefulPlugin, pluginExpandJSON],
 	});
 
-	expect(observedState).toBe(true);
+	expect(observedExpandJSONState).toBe(true);
+	expect(observedLocEnd).toBe(locEnd);
+	expect(observedLocStart).toBe(locStart);
 });
 
 test('ignores plugins with an `undefined` parser map', async () => {
@@ -701,161 +786,196 @@ test('ignores plugins with an `undefined` parser map', async () => {
 	expect(output).toBe(expectedOutput);
 });
 
-test.each(['json', 'json-stringify', 'jsonc'] as const)(
-	'runs lazy copied `%s` hooks once in every plugin order',
-	async (parserName) => {
-		for (const placement of ['after', 'alone', 'before'] as const) {
-			const parser = getDirectParser(pluginExpandJSON, parserName);
-			const parse = vi.fn(function (
-				this: Parser,
-				text: string,
-				options: ParserOptions
-			) {
-				return parser.parse.call(this, text, options);
-			});
-			const preprocess = vi.fn(function (
-				this: Parser,
-				text: string,
-				options: ParserOptions
-			): Promise<string> | string {
-				return parser.preprocess!.call(
-					this,
-					text.replace('[', '[2,'),
-					options
-				);
-			});
+test.each([
+	['after this plugin', 'json'],
+	['after this plugin', 'json-stringify'],
+	['after this plugin', 'jsonc'],
+	['alone', 'json'],
+	['alone', 'json-stringify'],
+	['alone', 'jsonc'],
+	['before this plugin', 'json'],
+	['before this plugin', 'json-stringify'],
+	['before this plugin', 'jsonc'],
+] as const)(
+	'runs lazy copied hooks once when placed %s with the `%s` parser',
+	async (placement, parserName) => {
+		const parser = getDirectParser(pluginExpandJSON, parserName);
+		const parse = vi.fn(function (
+			this: Parser,
+			text: string,
+			options: ParserOptions
+		) {
+			return parser.parse.call(this, text, options);
+		});
+		const preprocess = vi.fn(function (
+			this: Parser,
+			text: string,
+			options: ParserOptions
+		): Promise<string> | string {
+			return parser.preprocess!.call(
+				this,
+				text.replace('[', '[2,'),
+				options
+			);
+		});
 
-			const wrapperPlugin = {
-				parsers: {
-					[parserName]: async () => {
-						await Promise.resolve();
-						return { ...parser, parse, preprocess };
-					},
+		const wrapperPlugin = {
+			parsers: {
+				[parserName]: async () => {
+					await Promise.resolve();
+					return { ...parser, parse, preprocess };
 				},
-				printers: pluginExpandJSON.printers,
-			} as unknown as Plugin;
+			},
+			printers: pluginExpandJSON.printers,
+		} as unknown as Plugin;
 
-			const expectedOutput = await format('{"foo":[2,1]}', {
-				parser: parserName,
-				plugins: [pluginExpandJSON],
-			});
+		const expectedOutput = await format('{"foo":[2,1]}', {
+			parser: parserName,
+			plugins: [pluginExpandJSON],
+		});
 
-			const plugins = {
-				after: [pluginExpandJSON, wrapperPlugin],
-				alone: [wrapperPlugin],
-				before: [wrapperPlugin, pluginExpandJSON],
-			}[placement];
+		const plugins = {
+			'after this plugin': [pluginExpandJSON, wrapperPlugin],
+			'alone': [wrapperPlugin],
+			'before this plugin': [wrapperPlugin, pluginExpandJSON],
+		}[placement];
 
-			const output = await format(TEST_JSON, {
-				parser: parserName,
-				plugins,
-			});
+		const output = await format(TEST_JSON, {
+			parser: parserName,
+			plugins,
+		});
 
-			expect(parse).toHaveBeenCalledTimes(1);
-			expect(preprocess).toHaveBeenCalledTimes(1);
-			expect(output).toBe(expectedOutput);
-		}
+		expect(parse).toHaveBeenCalledTimes(1);
+		expect(preprocess).toHaveBeenCalledTimes(1);
+		expect(output).toBe(expectedOutput);
 	}
 );
 
-test.each(['json', 'json-stringify', 'jsonc'] as const)(
-	'runs copied `%s` hooks after plugin list replacement with this plugin last',
-	async (parserName) => {
-		for (const hook of ['parse', 'preprocess'] as const) {
-			for (const preserveReceiver of [false, true]) {
-				const parser = getDirectParser(pluginExpandJSON, parserName);
-				const priorHook = vi.fn(
-					(text: string, options: ParserOptions) =>
-						parser[hook]!(text.replace('[', '[2,'), options)
-				);
+test.each([
+	['a copied `parse` hook', 'json', 'parse', true],
+	['a copied `parse` hook', 'json-stringify', 'parse', true],
+	['a copied `parse` hook', 'jsonc', 'parse', true],
+	[
+		'a copied `preprocess` hook through a wrapper that calls this plugin’s parser',
+		'json',
+		'preprocess',
+		false,
+	],
+	[
+		'a copied `preprocess` hook through a wrapper that calls this plugin’s parser',
+		'json-stringify',
+		'preprocess',
+		false,
+	],
+	[
+		'a copied `preprocess` hook through a wrapper that calls this plugin’s parser',
+		'jsonc',
+		'preprocess',
+		false,
+	],
+	[
+		'a copied `preprocess` hook through a wrapper that forwards its receiver',
+		'json',
+		'preprocess',
+		true,
+	],
+	[
+		'a copied `preprocess` hook through a wrapper that forwards its receiver',
+		'json-stringify',
+		'preprocess',
+		true,
+	],
+	[
+		'a copied `preprocess` hook through a wrapper that forwards its receiver',
+		'jsonc',
+		'preprocess',
+		true,
+	],
+] as const)(
+	'runs %s after plugin list replacement with the `%s` parser',
+	async (_, parserName, hook, preserveReceiver) => {
+		const parser = getDirectParser(pluginExpandJSON, parserName);
+		const priorHook = vi.fn((text: string, options: ParserOptions) =>
+			parser[hook]!(text.replace('[', '[2,'), options)
+		);
 
-				const innerPlugin: Plugin = {
-					parsers: {
-						[parserName]: {
-							...parser,
-							[hook]: priorHook,
-						},
+		const innerPlugin: Plugin = {
+			parsers: {
+				[parserName]: {
+					...parser,
+					[hook]: priorHook,
+				},
+			},
+			printers: pluginExpandJSON.printers,
+		};
+
+		const outerPlugin: Plugin = {
+			parsers: {
+				[parserName]: {
+					...parser,
+					preprocess(text, options): Promise<string> | string {
+						options.plugins = [innerPlugin];
+
+						if (hook === 'parse') {
+							return text;
+						}
+
+						return preserveReceiver
+							? parser.preprocess!.call(this, text, options)
+							: parser.preprocess!(text, options);
 					},
-					printers: pluginExpandJSON.printers,
-				};
+				},
+			},
+			printers: pluginExpandJSON.printers,
+		};
 
-				const outerPlugin: Plugin = {
-					parsers: {
-						[parserName]: {
-							...parser,
-							preprocess(
-								text,
-								options
-							): Promise<string> | string {
-								options.plugins = [innerPlugin];
+		const expectedOutput = await format('{"foo":[2,1]}', {
+			parser: parserName,
+			plugins: [pluginExpandJSON],
+		});
 
-								if (hook === 'parse') {
-									return text;
-								}
+		const output = await format(TEST_JSON, {
+			parser: parserName,
+			plugins: [innerPlugin, outerPlugin, pluginExpandJSON],
+		});
 
-								return preserveReceiver
-									? parser.preprocess!.call(
-											this,
-											text,
-											options
-										)
-									: parser.preprocess!(text, options);
-							},
-						},
-					},
-					printers: pluginExpandJSON.printers,
-				};
-
-				const expectedOutput = await format('{"foo":[2,1]}', {
-					parser: parserName,
-					plugins: [pluginExpandJSON],
-				});
-
-				const output = await format(TEST_JSON, {
-					parser: parserName,
-					plugins: [innerPlugin, outerPlugin, pluginExpandJSON],
-				});
-
-				expect(priorHook).toHaveBeenCalledTimes(1);
-				expect(output).toBe(expectedOutput);
-			}
-		}
+		expect(priorHook).toHaveBeenCalledTimes(1);
+		expect(output).toBe(expectedOutput);
 	}
 );
 
 test('preserves parser lifecycle state after plugin list reassignment', async () => {
-	let initializationCount = 0;
-	let observedLifecycleState = false;
+	const { locEnd, locStart } = createLocationFunctions();
 
-	const locEnd: Parser['locEnd'] = (node) => babelParsers.json.locEnd(node);
-	const locStart: Parser['locStart'] = (node) =>
-		babelParsers.json.locStart(node);
+	let observedLocEnd: Parser['locEnd'] | undefined;
+	let observedLocStart: Parser['locStart'] | undefined;
+	let observedPreprocessed: boolean | undefined;
+
+	const initializeParser = vi.fn(async () => {
+		let preprocessed = false;
+		await Promise.resolve();
+
+		return {
+			...babelParsers.json,
+			parse: (text: string, options: ParserOptions) => {
+				observedLocEnd = options.locEnd;
+				observedLocStart = options.locStart;
+				observedPreprocessed = preprocessed;
+				return babelParsers.json.parse(text, options);
+			},
+			preprocess: (text: string, options: ParserOptions) => {
+				preprocessed = true;
+				options.locEnd = locEnd;
+				options.locStart = locStart;
+				options.plugins = [...options.plugins];
+				return text;
+			},
+		};
+	});
 
 	const lazyPlugin = {
 		parsers: {
-			json: async () => {
-				initializationCount += 1;
-				let preprocessed = false;
-				await Promise.resolve();
-
-				return {
-					...babelParsers.json,
-					parse: (text: string, options: ParserOptions) => {
-						observedLifecycleState =
-							preprocessed &&
-							options.locEnd === locEnd &&
-							options.locStart === locStart;
-						return babelParsers.json.parse(text, options);
-					},
-					preprocess: (text: string, options: ParserOptions) => {
-						preprocessed = true;
-						options.locEnd = locEnd;
-						options.locStart = locStart;
-						options.plugins = [...options.plugins];
-						return text;
-					},
-				};
-			},
+			json: initializeParser,
 		},
 	} as unknown as Plugin;
 
@@ -864,100 +984,160 @@ test('preserves parser lifecycle state after plugin list reassignment', async ()
 		plugins: [lazyPlugin, pluginExpandJSON],
 	});
 
-	expect(initializationCount).toBe(1);
-	expect(observedLifecycleState).toBe(true);
+	expect(initializeParser).toHaveBeenCalledTimes(1);
+	expect(observedLocEnd).toBe(locEnd);
+	expect(observedLocStart).toBe(locStart);
+	expect(observedPreprocessed).toBe(true);
 });
 
-test.each([
-	['with the current plugin omitted', true],
-	['without omitted plugins', false],
-] as const)(
-	'preserves reassigned plugins %s',
-	async (_, includeCurrentPlugin) => {
-		let initializationCount = 0;
-		let observedLifecycleState = false;
-		let observedPlugins: ParserOptions['plugins'] | undefined;
+test('preserves reassigned plugins with the current plugin omitted', async () => {
+	let observedLocEnd: Parser['locEnd'] | undefined;
+	let observedLocStart: Parser['locStart'] | undefined;
+	let observedPlugins: ParserOptions['plugins'] | undefined;
+	let observedPreprocessed: boolean | undefined;
 
-		const replacementParse = vi.fn(() => {
-			throw new Error();
-		});
+	const replacementParse = vi.fn(() => {
+		throw new Error();
+	});
 
-		const replacementPlugin: Plugin = {
-			parsers: {
-				json: {
-					...babelParsers.json,
-					parse: replacementParse,
-				},
+	const replacementPlugin: Plugin = {
+		parsers: {
+			json: {
+				...babelParsers.json,
+				parse: replacementParse,
+			},
+		},
+	};
+
+	const replacementPlugins: ParserOptions['plugins'] = [
+		replacementPlugin,
+		pluginExpandJSON,
+	];
+
+	const { locEnd, locStart } = createLocationFunctions();
+
+	const initializeParser = vi.fn(async () => {
+		let preprocessed = false;
+		await Promise.resolve();
+
+		return {
+			...babelParsers.json,
+			parse: (text: string, options: ParserOptions) => {
+				observedLocEnd = options.locEnd;
+				observedLocStart = options.locStart;
+				observedPlugins = options.plugins;
+				observedPreprocessed = preprocessed;
+				return babelParsers.json.parse(text, options);
+			},
+			preprocess: (text: string, options: ParserOptions) => {
+				preprocessed = true;
+				options.locEnd = locEnd;
+				options.locStart = locStart;
+				options.plugins = replacementPlugins;
+				return text;
 			},
 		};
+	});
 
-		const replacementPlugins: ParserOptions['plugins'] =
-			includeCurrentPlugin
-				? [replacementPlugin, pluginExpandJSON]
-				: [replacementPlugin];
+	const lazyPlugin = {
+		parsers: {
+			json: initializeParser,
+		},
+	} as unknown as Plugin;
 
-		const locEnd: Parser['locEnd'] = (node) =>
-			babelParsers.json.locEnd(node);
-		const locStart: Parser['locStart'] = (node) =>
-			babelParsers.json.locStart(node);
+	await format(TEST_JSON, {
+		parser: 'json',
+		plugins: [lazyPlugin, pluginExpandJSON],
+	});
 
-		const lazyPlugin = {
-			parsers: {
-				json: async () => {
-					initializationCount += 1;
-					let preprocessed = false;
-					await Promise.resolve();
+	expect(initializeParser).toHaveBeenCalledTimes(1);
+	expect(observedLocEnd).toBe(locEnd);
+	expect(observedLocStart).toBe(locStart);
+	expect(observedPreprocessed).toBe(true);
+	expect(observedPlugins).toStrictEqual([replacementPlugin]);
+	expect(replacementParse).not.toHaveBeenCalled();
+	expect(observedPlugins).not.toBe(replacementPlugins);
+});
 
-					return {
-						...babelParsers.json,
-						parse: (text: string, options: ParserOptions) => {
-							observedLifecycleState =
-								preprocessed &&
-								options.locEnd === locEnd &&
-								options.locStart === locStart;
-							observedPlugins = options.plugins;
-							return babelParsers.json.parse(text, options);
-						},
-						preprocess: (text: string, options: ParserOptions) => {
-							preprocessed = true;
-							options.locEnd = locEnd;
-							options.locStart = locStart;
-							options.plugins = replacementPlugins;
-							return text;
-						},
-					};
-				},
+test('preserves reassigned plugins without omitted plugins', async () => {
+	let observedLocEnd: Parser['locEnd'] | undefined;
+	let observedLocStart: Parser['locStart'] | undefined;
+	let observedPlugins: ParserOptions['plugins'] | undefined;
+	let observedPreprocessed: boolean | undefined;
+
+	const replacementParse = vi.fn(() => {
+		throw new Error();
+	});
+
+	const replacementPlugin: Plugin = {
+		parsers: {
+			json: {
+				...babelParsers.json,
+				parse: replacementParse,
 			},
-		} as unknown as Plugin;
+		},
+	};
 
-		await format(TEST_JSON, {
-			parser: 'json',
-			plugins: [lazyPlugin, pluginExpandJSON],
-		});
+	const replacementPlugins: ParserOptions['plugins'] = [replacementPlugin];
 
-		expect(initializationCount).toBe(1);
-		expect(observedLifecycleState).toBe(true);
-		expect(observedPlugins).toStrictEqual([replacementPlugin]);
-		expect(replacementParse).not.toHaveBeenCalled();
-		expect(observedPlugins === replacementPlugins).toBe(
-			!includeCurrentPlugin
-		);
-	}
-);
+	const { locEnd, locStart } = createLocationFunctions();
+
+	const initializeParser = vi.fn(async () => {
+		let preprocessed = false;
+		await Promise.resolve();
+
+		return {
+			...babelParsers.json,
+			parse: (text: string, options: ParserOptions) => {
+				observedLocEnd = options.locEnd;
+				observedLocStart = options.locStart;
+				observedPlugins = options.plugins;
+				observedPreprocessed = preprocessed;
+				return babelParsers.json.parse(text, options);
+			},
+			preprocess: (text: string, options: ParserOptions) => {
+				preprocessed = true;
+				options.locEnd = locEnd;
+				options.locStart = locStart;
+				options.plugins = replacementPlugins;
+				return text;
+			},
+		};
+	});
+
+	const lazyPlugin = {
+		parsers: {
+			json: initializeParser,
+		},
+	} as unknown as Plugin;
+
+	await format(TEST_JSON, {
+		parser: 'json',
+		plugins: [lazyPlugin, pluginExpandJSON],
+	});
+
+	expect(initializeParser).toHaveBeenCalledTimes(1);
+	expect(observedLocEnd).toBe(locEnd);
+	expect(observedLocStart).toBe(locStart);
+	expect(observedPreprocessed).toBe(true);
+	expect(observedPlugins).toStrictEqual([replacementPlugin]);
+	expect(replacementParse).not.toHaveBeenCalled();
+	expect(observedPlugins).toBe(replacementPlugins);
+});
 
 test('omits resolved lazy plugin copies from prior parser options', async () => {
 	const parser = getDirectParser(pluginExpandJSON, 'json');
 
-	let initializationCount = 0;
-	let observedDuplicate = false;
+	let observedPlugins: ParserOptions['plugins'] | undefined;
+
+	const initializeParser = vi.fn(async () => {
+		await Promise.resolve();
+		return parser;
+	});
 
 	const lazyPlugin = {
 		parsers: {
-			json: async () => {
-				initializationCount += 1;
-				await Promise.resolve();
-				return parser;
-			},
+			json: initializeParser,
 		},
 	} as unknown as Plugin;
 
@@ -966,7 +1146,7 @@ test('omits resolved lazy plugin copies from prior parser options', async () => 
 			json: {
 				...babelParsers.json,
 				parse: (text, options) => {
-					observedDuplicate = options.plugins.includes(lazyPlugin);
+					observedPlugins = options.plugins;
 					return babelParsers.json.parse(text, options);
 				},
 			},
@@ -978,20 +1158,19 @@ test('omits resolved lazy plugin copies from prior parser options', async () => 
 		plugins: [observingPlugin, lazyPlugin, pluginExpandJSON],
 	});
 
-	expect(initializationCount).toBe(1);
-	expect(observedDuplicate).toBe(false);
+	expect(initializeParser).toHaveBeenCalledTimes(1);
+	expect(observedPlugins).not.toContain(lazyPlugin);
 });
 
 test('doesn’t initialize shadowed lazy parsers', async () => {
-	let initializationCount = 0;
+	const initializeParser = vi.fn(async () => {
+		await Promise.resolve();
+		return babelParsers.json;
+	});
 
 	const lazyPlugin = {
 		parsers: {
-			json: async () => {
-				initializationCount += 1;
-				await Promise.resolve();
-				return babelParsers.json;
-			},
+			json: initializeParser,
 		},
 	} as unknown as Plugin;
 
@@ -1006,27 +1185,23 @@ test('doesn’t initialize shadowed lazy parsers', async () => {
 		plugins: [lazyPlugin, priorPlugin, pluginExpandJSON],
 	});
 
-	expect(initializationCount).toBe(0);
+	expect(initializeParser).not.toHaveBeenCalled();
 });
 
 test('passes the compatibility options argument to prior parsers', async () => {
-	let receivedDuplicatedOptions = false;
+	const parse = vi.fn(
+		(
+			text: string,
+			options: ParserOptions,
+			compatibilityOptions?: ParserOptions
+		) => babelParsers.json.parse(text, compatibilityOptions ?? options)
+	);
+
 	const legacyPlugin: Plugin = {
 		parsers: {
 			json: {
 				...babelParsers.json,
-				parse: (
-					text: string,
-					options: ParserOptions,
-					compatibilityOptions?: ParserOptions
-				) => {
-					receivedDuplicatedOptions =
-						compatibilityOptions === options;
-					return babelParsers.json.parse(
-						text,
-						compatibilityOptions ?? options
-					);
-				},
+				parse,
 			},
 		},
 	};
@@ -1036,7 +1211,9 @@ test('passes the compatibility options argument to prior parsers', async () => {
 		plugins: [legacyPlugin, pluginExpandJSON],
 	});
 
-	expect(receivedDuplicatedOptions).toBe(true);
+	const [, options, compatibilityOptions] = parse.mock.lastCall!;
+
+	expect(compatibilityOptions).toBe(options);
 });
 
 test('handles wrappers that copy the current parser hooks', async () => {
@@ -1063,7 +1240,7 @@ test('continues to prior parsers through copied wrappers', async () => {
 		parsers: {
 			json: {
 				...babelParsers.json,
-				preprocess: () => '{"foo":["prior"]}\n',
+				preprocess: () => '{"foo":["bar"]}\n',
 			},
 		},
 	};
@@ -1121,7 +1298,7 @@ test('handles wrappers that reuse the current `parse` function', async () => {
 	const parser = getDirectParser(pluginExpandJSON, 'json');
 	const wrapperPlugin = createJSONWrapperPlugin({
 		...parser,
-		preprocess: () => '{"foo":["copied"]}\n',
+		preprocess: () => '{"foo":["bar"]}\n',
 	});
 
 	const expectedOutput = await format(TEST_JSON, {
@@ -1176,63 +1353,62 @@ test('avoids recursion through wrappers that copy `preprocess`', async () => {
 	expect(output).toBe(expectedOutput);
 });
 
-test('uses copied wrapper location fields only when selected by Prettier', async () => {
-	const parser = getDirectParser(pluginExpandJSON, 'json');
+test.each(['after this plugin', 'alone', 'before this plugin'] as const)(
+	'uses location fields from a copied wrapper placed %s only when Prettier selects it',
+	async (placement) => {
+		const parser = getDirectParser(pluginExpandJSON, 'json');
 
-	const locEnd = vi.fn(babelParsers.json.locEnd);
-	const locStart = vi.fn(babelParsers.json.locStart);
-	const parse = vi.fn(parser.parse);
-	const priorLocEnd = vi.fn(babelParsers.json.locEnd);
-	const priorLocStart = vi.fn(babelParsers.json.locStart);
+		const locEnd = vi.fn(babelParsers.json.locEnd);
+		const locStart = vi.fn(babelParsers.json.locStart);
+		const parse = vi.fn(parser.parse);
+		const priorLocEnd = vi.fn(babelParsers.json.locEnd);
+		const priorLocStart = vi.fn(babelParsers.json.locStart);
 
-	const priorPlugin: Plugin = {
-		parsers: {
-			json: {
-				...babelParsers.json,
-				locEnd: priorLocEnd,
-				locStart: priorLocStart,
+		const priorPlugin: Plugin = {
+			parsers: {
+				json: {
+					...babelParsers.json,
+					locEnd: priorLocEnd,
+					locStart: priorLocStart,
+				},
 			},
-		},
-	};
+		};
 
-	const wrapperPlugin = createJSONWrapperPlugin({
-		...parser,
-		locEnd,
-		locStart,
-		parse,
-	});
+		const wrapperPlugin = createJSONWrapperPlugin({
+			...parser,
+			locEnd,
+			locStart,
+			parse,
+		});
 
-	const options = {
-		cursorOffset: TEST_JSON.indexOf('1'),
-		parser: 'json',
-	};
+		const options = {
+			cursorOffset: TEST_JSON.indexOf('1'),
+			parser: 'json',
+		};
 
-	const expectedOutput = await formatWithCursor(TEST_JSON, {
-		...options,
-		plugins: [pluginExpandJSON],
-	});
+		const expectedResult = await formatWithCursor(TEST_JSON, {
+			...options,
+			plugins: [pluginExpandJSON],
+		});
 
-	for (const placement of ['after', 'alone', 'before'] as const) {
 		const plugins = {
-			after: [priorPlugin, pluginExpandJSON, wrapperPlugin],
-			alone: [priorPlugin, wrapperPlugin],
-			before: [priorPlugin, wrapperPlugin, pluginExpandJSON],
+			'after this plugin': [priorPlugin, pluginExpandJSON, wrapperPlugin],
+			'alone': [priorPlugin, wrapperPlugin],
+			'before this plugin': [
+				priorPlugin,
+				wrapperPlugin,
+				pluginExpandJSON,
+			],
 		}[placement];
 
-		const isSelectedParser = placement !== 'before';
+		const isSelectedParser = placement !== 'before this plugin';
 
-		locEnd.mockClear();
-		locStart.mockClear();
-		parse.mockClear();
-		priorLocEnd.mockClear();
-		priorLocStart.mockClear();
-
-		const output = await formatWithCursor(TEST_JSON, {
+		const result = await formatWithCursor(TEST_JSON, {
 			...options,
 			plugins,
 		});
 
-		expect(output).toStrictEqual(expectedOutput);
+		expect(result).toStrictEqual(expectedResult);
 		expect(parse).toHaveBeenCalledTimes(1);
 		expect(isSelectedParser ? locEnd : priorLocEnd).toHaveBeenCalled();
 		expect(isSelectedParser ? locStart : priorLocStart).toHaveBeenCalled();
@@ -1241,203 +1417,253 @@ test('uses copied wrapper location fields only when selected by Prettier', async
 			isSelectedParser ? priorLocStart : locStart
 		).not.toHaveBeenCalled();
 	}
-});
+);
 
-describe.each(['parser fields', 'preprocess'] as const)(
-	'copied locations from %s',
-	(source) => {
-		test.each(['after this plugin', 'alone'] as const)(
-			'preserves overrides when selected %s',
-			async (placement) => {
-				const parser = getDirectParser(pluginExpandJSON, 'json');
+test.each([
+	['parser fields', 'after this plugin'],
+	['parser fields', 'alone'],
+	['the `preprocess` hook', 'after this plugin'],
+	['the `preprocess` hook', 'alone'],
+] as const)(
+	'preserves wrapper location overrides from %s when placed %s',
+	async (source, placement) => {
+		const parser = getDirectParser(pluginExpandJSON, 'json');
+		const { locEnd, locStart } = createLocationFunctions();
 
-				const locEnd: Parser['locEnd'] = (node) =>
-					babelParsers.json.locEnd(node);
-				const locStart: Parser['locStart'] = (node) =>
-					babelParsers.json.locStart(node);
+		let observedLocEnd: Parser['locEnd'] | undefined;
+		let observedLocStart: Parser['locStart'] | undefined;
+		let parsedOptions: ParserOptions | undefined;
 
-				let observedLocations = false;
-				let parsedOptions: ParserOptions | undefined;
-				let parseCallCount = 0;
+		const priorParse = vi.fn((text: string, options: ParserOptions) => {
+			observedLocEnd = options.locEnd;
+			observedLocStart = options.locStart;
+			parsedOptions = options;
 
-				const priorPlugin: Plugin = {
-					parsers: {
-						json: {
-							...babelParsers.json,
-							parse: (text, options) => {
-								parseCallCount += 1;
-								parsedOptions = options;
-								observedLocations =
-									options.locEnd === locEnd &&
-									options.locStart === locStart;
+			return babelParsers.json.parse(text, options);
+		});
 
-								return babelParsers.json.parse(text, options);
-							},
-						},
-					},
-				};
+		const priorPlugin: Plugin = {
+			parsers: {
+				json: {
+					...babelParsers.json,
+					parse: priorParse,
+				},
+			},
+		};
 
-				const wrapperParser: Parser = { ...parser };
+		const wrapperParser: Parser = { ...parser };
 
-				if (source === 'parser fields') {
-					wrapperParser.locEnd = locEnd;
-					wrapperParser.locStart = locStart;
-				} else {
-					wrapperParser.preprocess = (text, options) => {
-						options.locEnd = locEnd;
-						options.locStart = locStart;
+		if (source === 'parser fields') {
+			wrapperParser.locEnd = locEnd;
+			wrapperParser.locStart = locStart;
+		} else {
+			wrapperParser.preprocess = (text, options) => {
+				options.locEnd = locEnd;
+				options.locStart = locStart;
 
-						return text;
-					};
-				}
+				return text;
+			};
+		}
 
-				const wrapperPlugin = createJSONWrapperPlugin(wrapperParser);
-				const plugins =
-					placement === 'alone'
-						? [priorPlugin, wrapperPlugin]
-						: [priorPlugin, pluginExpandJSON, wrapperPlugin];
+		const wrapperPlugin = createJSONWrapperPlugin(wrapperParser);
+		const plugins = {
+			'after this plugin': [priorPlugin, pluginExpandJSON, wrapperPlugin],
+			'alone': [priorPlugin, wrapperPlugin],
+		}[placement];
 
-				const expectedOutput = await format(TEST_JSON, {
-					parser: 'json',
-					plugins: [pluginExpandJSON],
-				});
+		const expectedOutput = await format(TEST_JSON, {
+			parser: 'json',
+			plugins: [pluginExpandJSON],
+		});
 
-				const output = await format(TEST_JSON, {
-					parser: 'json',
-					plugins,
-				});
+		const output = await format(TEST_JSON, {
+			parser: 'json',
+			plugins,
+		});
 
-				expect(observedLocations).toBe(true);
-				expect(parseCallCount).toBe(1);
-				expect(parsedOptions?.locEnd).toBe(locEnd);
-				expect(parsedOptions?.locStart).toBe(locStart);
-				expect(output).toBe(expectedOutput);
-			}
-		);
+		expect(observedLocEnd).toBe(locEnd);
+		expect(observedLocStart).toBe(locStart);
+		expect(priorParse).toHaveBeenCalledTimes(1);
+		expect(parsedOptions?.locEnd).toBe(locEnd);
+		expect(parsedOptions?.locStart).toBe(locStart);
+		expect(output).toBe(expectedOutput);
 	}
 );
 
-describe.each(['parse', 'preprocess'] as const)('`%s` wrappers', (hook) => {
-	describe.each(['locations', 'plugins'] as const)(
-		'%s overrides',
-		(override) => {
-			test.each([
-				'after this plugin',
-				'alone',
-				'before this plugin',
-			] as const)(
-				'passes overrides to the prior parser %s',
-				async (placement) => {
-					const parser = getDirectParser(pluginExpandJSON, 'json');
+test.each([
+	['parse', 'after this plugin'],
+	['parse', 'alone'],
+	['parse', 'before this plugin'],
+	['preprocess', 'after this plugin'],
+	['preprocess', 'alone'],
+	['preprocess', 'before this plugin'],
+] as const)(
+	'passes location overrides from `%s` wrappers to the prior parser when placed %s',
+	async (hook, placement) => {
+		const parser = getDirectParser(pluginExpandJSON, 'json');
+		const { locEnd, locStart } = createLocationFunctions();
 
-					const locEnd: Parser['locEnd'] = (node) =>
-						babelParsers.json.locEnd(node);
-					const locStart: Parser['locStart'] = (node) =>
-						babelParsers.json.locStart(node);
+		let observedLocEnd: Parser['locEnd'] | undefined;
+		let observedLocStart: Parser['locStart'] | undefined;
+		let observedOptions: ParserOptions | undefined;
+		let wrapperCallCount = 0;
 
-					let observedOverride = false;
-					let observedOptions: ParserOptions | undefined;
-					let priorCallCount = 0;
-					let wrapperCallCount = 0;
+		const priorHook = vi.fn((text: string, options: ParserOptions) => {
+			observedLocEnd = options.locEnd;
+			observedLocStart = options.locStart;
+			observedOptions = options;
 
-					const priorPlugin: Plugin = {
-						parsers: {
-							json: {
-								...babelParsers.json,
-								[hook]: (
-									text: string,
-									options: ParserOptions
-								) => {
-									priorCallCount += 1;
-									observedOptions = options;
-									observedOverride =
-										override === 'locations'
-											? options.locEnd === locEnd &&
-												options.locStart === locStart
-											: options.plugins ===
-												reassignedPlugins;
+			return hook === 'parse'
+				? babelParsers.json.parse(text, options)
+				: text;
+		});
 
-									return hook === 'parse'
-										? babelParsers.json.parse(text, options)
-										: text;
-								},
-							},
-						},
-					};
+		const priorPlugin: Plugin = {
+			parsers: {
+				json: {
+					...babelParsers.json,
+					[hook]: priorHook,
+				},
+			},
+		};
 
-					const reassignedPlugins: ParserOptions['plugins'] = [
-						priorPlugin,
-					];
+		const wrapperPlugin = createJSONWrapperPlugin({
+			...parser,
+			[hook]: async (text: string, options: ParserOptions) => {
+				wrapperCallCount += 1;
 
-					const wrapperPlugin = createJSONWrapperPlugin({
-						...parser,
-						[hook]: async (
-							text: string,
-							options: ParserOptions
-						) => {
-							wrapperCallCount += 1;
-
-							if (wrapperCallCount > 1) {
-								throw new Error();
-							}
-
-							await Promise.resolve();
-
-							if (override === 'locations') {
-								options.locEnd = locEnd;
-								options.locStart = locStart;
-							} else {
-								options.plugins = reassignedPlugins;
-							}
-
-							return parser[hook]!(text, options);
-						},
-					});
-
-					const plugins = {
-						'after this plugin': [
-							priorPlugin,
-							pluginExpandJSON,
-							wrapperPlugin,
-						],
-						'alone': [priorPlugin, wrapperPlugin],
-						'before this plugin': [
-							priorPlugin,
-							wrapperPlugin,
-							pluginExpandJSON,
-						],
-					}[placement];
-
-					const expectedOutput = await format(TEST_JSON, {
-						parser: 'json',
-						plugins: [pluginExpandJSON],
-					});
-
-					const output = await format(TEST_JSON, {
-						parser: 'json',
-						plugins,
-					});
-
-					expect(observedOverride).toBe(true);
-					expect(priorCallCount).toBe(1);
-					expect(wrapperCallCount).toBe(1);
-					expect(output).toBe(expectedOutput);
-					expect(
-						override === 'locations'
-							? observedOptions?.locEnd === locEnd &&
-									observedOptions?.locStart === locStart
-							: observedOptions?.plugins === reassignedPlugins
-					).toBe(true);
+				if (wrapperCallCount > 1) {
+					throw new Error();
 				}
-			);
-		}
-	);
 
-	test.each([
-		'alone',
-		'before an independent plugin instance',
-		'before this plugin',
-	] as const)('runs once %s with a prior parser', async (placement) => {
+				await Promise.resolve();
+				options.locEnd = locEnd;
+				options.locStart = locStart;
+
+				return parser[hook]!(text, options);
+			},
+		});
+
+		const plugins = {
+			'after this plugin': [priorPlugin, pluginExpandJSON, wrapperPlugin],
+			'alone': [priorPlugin, wrapperPlugin],
+			'before this plugin': [
+				priorPlugin,
+				wrapperPlugin,
+				pluginExpandJSON,
+			],
+		}[placement];
+
+		const expectedOutput = await format(TEST_JSON, {
+			parser: 'json',
+			plugins: [pluginExpandJSON],
+		});
+
+		const output = await format(TEST_JSON, {
+			parser: 'json',
+			plugins,
+		});
+
+		expect(observedLocEnd).toBe(locEnd);
+		expect(observedLocStart).toBe(locStart);
+		expect(priorHook).toHaveBeenCalledTimes(1);
+		expect(wrapperCallCount).toBe(1);
+		expect(output).toBe(expectedOutput);
+		expect(observedOptions?.locEnd).toBe(locEnd);
+		expect(observedOptions?.locStart).toBe(locStart);
+	}
+);
+
+test.each([
+	['parse', 'after this plugin'],
+	['parse', 'alone'],
+	['parse', 'before this plugin'],
+	['preprocess', 'after this plugin'],
+	['preprocess', 'alone'],
+	['preprocess', 'before this plugin'],
+] as const)(
+	'passes plugin list overrides from `%s` wrappers to the prior parser when placed %s',
+	async (hook, placement) => {
+		const parser = getDirectParser(pluginExpandJSON, 'json');
+
+		let observedOptions: ParserOptions | undefined;
+		let observedPlugins: ParserOptions['plugins'] | undefined;
+		let wrapperCallCount = 0;
+
+		const priorHook = vi.fn((text: string, options: ParserOptions) => {
+			observedOptions = options;
+			observedPlugins = options.plugins;
+
+			return hook === 'parse'
+				? babelParsers.json.parse(text, options)
+				: text;
+		});
+
+		const priorPlugin: Plugin = {
+			parsers: {
+				json: {
+					...babelParsers.json,
+					[hook]: priorHook,
+				},
+			},
+		};
+
+		const reassignedPlugins: ParserOptions['plugins'] = [priorPlugin];
+
+		const wrapperPlugin = createJSONWrapperPlugin({
+			...parser,
+			[hook]: async (text: string, options: ParserOptions) => {
+				wrapperCallCount += 1;
+
+				if (wrapperCallCount > 1) {
+					throw new Error();
+				}
+
+				await Promise.resolve();
+				options.plugins = reassignedPlugins;
+
+				return parser[hook]!(text, options);
+			},
+		});
+
+		const plugins = {
+			'after this plugin': [priorPlugin, pluginExpandJSON, wrapperPlugin],
+			'alone': [priorPlugin, wrapperPlugin],
+			'before this plugin': [
+				priorPlugin,
+				wrapperPlugin,
+				pluginExpandJSON,
+			],
+		}[placement];
+
+		const expectedOutput = await format(TEST_JSON, {
+			parser: 'json',
+			plugins: [pluginExpandJSON],
+		});
+
+		const output = await format(TEST_JSON, {
+			parser: 'json',
+			plugins,
+		});
+
+		expect(observedPlugins).toBe(reassignedPlugins);
+		expect(priorHook).toHaveBeenCalledTimes(1);
+		expect(wrapperCallCount).toBe(1);
+		expect(output).toBe(expectedOutput);
+		expect(observedOptions?.plugins).toBe(reassignedPlugins);
+	}
+);
+
+test.each([
+	['parse', 'alone'],
+	['parse', 'before an independent plugin instance'],
+	['parse', 'before this plugin'],
+	['preprocess', 'alone'],
+	['preprocess', 'before an independent plugin instance'],
+	['preprocess', 'before this plugin'],
+] as const)(
+	'runs a delegating `%s` wrapper once when placed %s with a prior parser',
+	async (hook, placement) => {
 		vi.resetModules();
 
 		const firstPlugin = await import('../index.ts');
@@ -1449,28 +1675,20 @@ describe.each(['parse', 'preprocess'] as const)('`%s` wrappers', (hook) => {
 
 		const secondPlugin = await import('../index.ts');
 
-		let initializationCount = 0;
-		let parseCallCount = 0;
-		let preprocessCallCount = 0;
 		let wrapperCallCount = 0;
+
+		const parse = vi.fn((text: string, options: ParserOptions) =>
+			babelParsers.json.parse(text, options)
+		);
+		const preprocess = vi.fn((text: string) => text.replace('[', '[2,'));
+		const initializeParser = vi.fn(async () => {
+			await Promise.resolve();
+			return { ...babelParsers.json, parse, preprocess };
+		});
 
 		const priorPlugin = {
 			parsers: {
-				json: async () => {
-					initializationCount += 1;
-					await Promise.resolve();
-					return {
-						...babelParsers.json,
-						parse: (text: string, options: ParserOptions) => {
-							parseCallCount += 1;
-							return babelParsers.json.parse(text, options);
-						},
-						preprocess: (text: string) => {
-							preprocessCallCount += 1;
-							return text.replace('[', '[2,');
-						},
-					};
-				},
+				json: initializeParser,
 			},
 		} as unknown as Plugin;
 
@@ -1493,102 +1711,109 @@ describe.each(['parse', 'preprocess'] as const)('`%s` wrappers', (hook) => {
 			{ parser: 'json', plugins: [secondPlugin] }
 		);
 
-		const plugins =
-			placement === 'alone'
-				? [priorPlugin, wrapperPlugin]
-				: [priorPlugin, wrapperPlugin, secondPlugin];
+		const plugins = {
+			'alone': [priorPlugin, wrapperPlugin],
+			'before an independent plugin instance': [
+				priorPlugin,
+				wrapperPlugin,
+				secondPlugin,
+			],
+			'before this plugin': [priorPlugin, wrapperPlugin, secondPlugin],
+		}[placement];
 
 		const output = await format(TEST_JSON, { parser: 'json', plugins });
 
-		expect(initializationCount).toBe(1);
-		expect(parseCallCount).toBe(1);
-		expect(preprocessCallCount).toBe(1);
+		expect(initializeParser).toHaveBeenCalledTimes(1);
+		expect(parse).toHaveBeenCalledTimes(1);
+		expect(preprocess).toHaveBeenCalledTimes(1);
 		expect(wrapperCallCount).toBe(1);
 		expect(output).toBe(expectedOutput);
-	});
+	}
+);
 
-	test.each([
-		'before an independent plugin instance',
-		'before this plugin',
-	] as const)(
-		'passes wrapper lifecycle changes to the prior parser %s',
-		async (placement) => {
+test.each([
+	['parse', 'before an independent plugin instance'],
+	['parse', 'before this plugin'],
+	['preprocess', 'before an independent plugin instance'],
+	['preprocess', 'before this plugin'],
+] as const)(
+	'passes lifecycle changes from `%s` wrappers to the prior parser when placed %s',
+	async (hook, placement) => {
+		vi.resetModules();
+
+		const firstPlugin = await import('../index.ts');
+		const parser = getDirectParser(firstPlugin, 'json');
+
+		if (placement === 'before an independent plugin instance') {
 			vi.resetModules();
-
-			const firstPlugin = await import('../index.ts');
-			const parser = getDirectParser(firstPlugin, 'json');
-
-			if (placement === 'before an independent plugin instance') {
-				vi.resetModules();
-			}
-
-			const secondPlugin = await import('../index.ts');
-
-			const locEnd: Parser['locEnd'] = (node) =>
-				babelParsers.json.locEnd(node);
-			const locStart: Parser['locStart'] = (node) =>
-				babelParsers.json.locStart(node);
-
-			const reassignedPlugins: ParserOptions['plugins'] = [];
-			let observedLifecycleState = false;
-			let priorCallCount = 0;
-			let wrapperCallCount = 0;
-
-			const priorPlugin: Plugin = {
-				parsers: {
-					json: {
-						...babelParsers.json,
-						[hook]: (text: string, options: ParserOptions) => {
-							priorCallCount += 1;
-							observedLifecycleState =
-								options.locEnd === locEnd &&
-								options.locStart === locStart &&
-								options.plugins === reassignedPlugins;
-							return hook === 'parse'
-								? babelParsers.json.parse(text, options)
-								: text;
-						},
-					},
-				},
-			};
-
-			const wrapperPlugin = createJSONWrapperPlugin({
-				...parser,
-				[hook]: async (text: string, options: ParserOptions) => {
-					wrapperCallCount += 1;
-
-					if (wrapperCallCount > 1) {
-						throw new Error();
-					}
-
-					await Promise.resolve();
-					options.locEnd = locEnd;
-					options.locStart = locStart;
-					options.plugins = reassignedPlugins;
-					return parser[hook]!(text.replace('[', '[2,'), options);
-				},
-			});
-
-			const expectedOutput = await format('{"foo":[2,1]}', {
-				parser: 'json',
-				plugins: [secondPlugin],
-			});
-
-			const output = await format(TEST_JSON, {
-				parser: 'json',
-				plugins: [priorPlugin, wrapperPlugin, secondPlugin],
-			});
-
-			expect(observedLifecycleState).toBe(true);
-			expect(priorCallCount).toBe(1);
-			expect(wrapperCallCount).toBe(1);
-			expect(output).toBe(expectedOutput);
 		}
-	);
-});
+
+		const secondPlugin = await import('../index.ts');
+
+		const { locEnd, locStart } = createLocationFunctions();
+
+		const reassignedPlugins: ParserOptions['plugins'] = [];
+		let observedLocEnd: Parser['locEnd'] | undefined;
+		let observedLocStart: Parser['locStart'] | undefined;
+		let observedPlugins: ParserOptions['plugins'] | undefined;
+		let wrapperCallCount = 0;
+
+		const priorHook = vi.fn((text: string, options: ParserOptions) => {
+			observedLocEnd = options.locEnd;
+			observedLocStart = options.locStart;
+			observedPlugins = options.plugins;
+			return hook === 'parse'
+				? babelParsers.json.parse(text, options)
+				: text;
+		});
+
+		const priorPlugin: Plugin = {
+			parsers: {
+				json: {
+					...babelParsers.json,
+					[hook]: priorHook,
+				},
+			},
+		};
+
+		const wrapperPlugin = createJSONWrapperPlugin({
+			...parser,
+			[hook]: async (text: string, options: ParserOptions) => {
+				wrapperCallCount += 1;
+
+				if (wrapperCallCount > 1) {
+					throw new Error();
+				}
+
+				await Promise.resolve();
+				options.locEnd = locEnd;
+				options.locStart = locStart;
+				options.plugins = reassignedPlugins;
+				return parser[hook]!(text.replace('[', '[2,'), options);
+			},
+		});
+
+		const expectedOutput = await format('{"foo":[2,1]}', {
+			parser: 'json',
+			plugins: [secondPlugin],
+		});
+
+		const output = await format(TEST_JSON, {
+			parser: 'json',
+			plugins: [priorPlugin, wrapperPlugin, secondPlugin],
+		});
+
+		expect(observedLocEnd).toBe(locEnd);
+		expect(observedLocStart).toBe(locStart);
+		expect(observedPlugins).toBe(reassignedPlugins);
+		expect(priorHook).toHaveBeenCalledTimes(1);
+		expect(wrapperCallCount).toBe(1);
+		expect(output).toBe(expectedOutput);
+	}
+);
 
 test.each(['alone', 'before this plugin'] as const)(
-	'runs wrapped hooks once %s without a prior parser',
+	'runs wrapped hooks once when placed %s without a prior parser',
 	async (placement) => {
 		const parser = getDirectParser(pluginExpandJSON, 'json');
 		let parseCallCount = 0;
@@ -1622,10 +1847,10 @@ test.each(['alone', 'before this plugin'] as const)(
 			plugins: [pluginExpandJSON],
 		});
 
-		const plugins =
-			placement === 'alone'
-				? [wrapperPlugin]
-				: [wrapperPlugin, pluginExpandJSON];
+		const plugins = {
+			'alone': [wrapperPlugin],
+			'before this plugin': [wrapperPlugin, pluginExpandJSON],
+		}[placement];
 
 		const output = await format(TEST_JSON, { parser: 'json', plugins });
 
@@ -1635,12 +1860,9 @@ test.each(['alone', 'before this plugin'] as const)(
 	}
 );
 
-test('restores original locations when a wrapper rejects after parsing', async () => {
+test('restores parser locations when a wrapper rejects after delegated parsing', async () => {
 	const parser = getDirectParser(pluginExpandJSON, 'json');
-
-	const locEnd: Parser['locEnd'] = (node) => babelParsers.json.locEnd(node);
-	const locStart: Parser['locStart'] = (node) =>
-		babelParsers.json.locStart(node);
+	const { locEnd, locStart } = createLocationFunctions();
 
 	const priorPlugin: Plugin = {
 		parsers: {
@@ -1653,7 +1875,8 @@ test('restores original locations when a wrapper rejects after parsing', async (
 	};
 
 	const error = new Error();
-	let observedParsedLocations = false;
+	let observedLocEnd: Parser['locEnd'] | undefined;
+	let observedLocStart: Parser['locStart'] | undefined;
 	let parseCallCount = 0;
 
 	const wrapperPlugin = createJSONWrapperPlugin({
@@ -1667,8 +1890,8 @@ test('restores original locations when a wrapper rejects after parsing', async (
 
 			await parser.parse(text, options);
 
-			observedParsedLocations =
-				options.locEnd === locEnd && options.locStart === locStart;
+			observedLocEnd = options.locEnd;
+			observedLocStart = options.locStart;
 
 			throw error;
 		},
@@ -1686,7 +1909,8 @@ test('restores original locations when a wrapper rejects after parsing', async (
 
 	await expect(parser.parse(TEST_JSON, options)).rejects.toBe(error);
 
-	expect(observedParsedLocations).toBe(true);
+	expect(observedLocEnd).toBe(locEnd);
+	expect(observedLocStart).toBe(locStart);
 	expect(parseCallCount).toBe(1);
 	expect(options.astFormat).toBe(parser.astFormat);
 	expect(options.locEnd).toBe(parser.locEnd);
@@ -1696,15 +1920,19 @@ test('restores original locations when a wrapper rejects after parsing', async (
 
 test('preserves locations reset by a wrapper before parsing again', async () => {
 	const parser = getDirectParser(pluginExpandJSON, 'json');
+	const { locEnd, locStart } = createLocationFunctions();
 
-	const locEnd: Parser['locEnd'] = (node) => babelParsers.json.locEnd(node);
-	const locStart: Parser['locStart'] = (node) =>
-		babelParsers.json.locStart(node);
-
-	let observedParsedLocations = false;
-	let observedResetLocations = false;
-	let parseCallCount = 0;
+	let observedParsedLocEnd: Parser['locEnd'] | undefined;
+	let observedParsedLocStart: Parser['locStart'] | undefined;
+	let observedResetLocEnd: Parser['locEnd'] | undefined;
+	let observedResetLocStart: Parser['locStart'] | undefined;
 	let wrapperCallCount = 0;
+
+	const priorParse = vi.fn((text: string, options: ParserOptions) => {
+		observedResetLocEnd = options.locEnd;
+		observedResetLocStart = options.locStart;
+		return babelParsers.json.parse(text, options);
+	});
 
 	const priorPlugin: Plugin = {
 		parsers: {
@@ -1712,13 +1940,7 @@ test('preserves locations reset by a wrapper before parsing again', async () => 
 				...babelParsers.json,
 				locEnd,
 				locStart,
-				parse: (text, options) => {
-					parseCallCount += 1;
-					observedResetLocations =
-						options.locEnd === parser.locEnd &&
-						options.locStart === parser.locStart;
-					return babelParsers.json.parse(text, options);
-				},
+				parse: priorParse,
 			},
 		},
 	};
@@ -1737,8 +1959,8 @@ test('preserves locations reset by a wrapper before parsing again', async () => 
 
 			await parser.parse(text, options);
 
-			observedParsedLocations =
-				options.locEnd === locEnd && options.locStart === locStart;
+			observedParsedLocEnd = options.locEnd;
+			observedParsedLocStart = options.locStart;
 
 			options.locEnd = originalLocEnd;
 			options.locStart = originalLocStart;
@@ -1756,125 +1978,72 @@ test('preserves locations reset by a wrapper before parsing again', async () => 
 		plugins: [priorPlugin, wrapperPlugin, pluginExpandJSON],
 	});
 
-	expect(observedParsedLocations).toBe(true);
-	expect(observedResetLocations).toBe(true);
-	expect(parseCallCount).toBe(2);
+	expect(observedParsedLocEnd).toBe(locEnd);
+	expect(observedParsedLocStart).toBe(locStart);
+	expect(observedResetLocEnd).toBe(parser.locEnd);
+	expect(observedResetLocStart).toBe(parser.locStart);
+	expect(priorParse).toHaveBeenCalledTimes(2);
 	expect(wrapperCallCount).toBe(1);
 	expect(output).toBe(expectedOutput);
 });
 
-test.each([
-	['with a prior continuation', true],
-	['without a prior continuation', false],
-] as const)(
-	'restores parser options after rejection %s',
-	async (_, hasOuterContext) => {
-		const parser = getDirectParser(pluginExpandJSON, 'json');
-		const delegationKey = Symbol.for(
-			'prettier-plugin-expand-json.parser-delegation'
-		);
+test('restores parser options after rejection with a prior continuation', async () => {
+	const {
+		allowParsing,
+		delegationKey,
+		error,
+		getWrapperCallCount,
+		nativeParse,
+		options,
+		originalPlugins,
+		outerContext,
+		parser,
+	} = createRejectionFixture();
 
-		const error = new Error();
-		let reject = true;
-		let wrapperCalls = 0;
+	Reflect.set(options, delegationKey, outerContext);
 
-		const nativeParse = vi.fn((text: string, options: ParserOptions) =>
-			babelParsers.json.parse(text, options)
-		);
+	await expect(parser.parse(TEST_JSON, options)).rejects.toBe(error);
 
-		const priorPlugin: Plugin = {
-			parsers: {
-				json: {
-					...babelParsers.json,
-					parse: nativeParse,
-				},
-			},
-		};
+	expect(Reflect.get(options, delegationKey)).toBe(outerContext);
 
-		const wrapperPlugin = createJSONWrapperPlugin({
-			...parser,
-			parse: async (text, options) => {
-				wrapperCalls += 1;
+	allowParsing();
+	await parser.parse(TEST_JSON, options);
 
-				if (wrapperCalls > 3) {
-					throw new Error();
-				}
+	expect(getWrapperCallCount()).toBe(2);
+	expect(nativeParse).toHaveBeenCalledTimes(2);
+	expect(outerContext.delegation.resolveNext).not.toHaveBeenCalled();
+	expect(outerContext.syncOptions).toHaveBeenCalledTimes(2);
+	expect(Reflect.get(options, delegationKey)).toBe(outerContext);
+	expect(options.plugins).toBe(originalPlugins);
+});
 
-				const context: unknown = Reflect.get(options, delegationKey);
+test('restores parser options after rejection without a prior continuation', async () => {
+	const {
+		allowParsing,
+		delegationKey,
+		error,
+		getWrapperCallCount,
+		nativeParse,
+		options,
+		originalPlugins,
+		outerContext,
+		parser,
+	} = createRejectionFixture();
 
-				expect(context).toBeDefined();
-				expect(context).not.toBe(outerContext);
+	await expect(parser.parse(TEST_JSON, options)).rejects.toBe(error);
 
-				await Promise.resolve();
-				expect(Reflect.get(options, delegationKey)).toBe(context);
+	expect(Reflect.ownKeys(options)).not.toContain(delegationKey);
 
-				const ast: unknown = await parser.parse(text, options);
+	allowParsing();
+	await parser.parse(TEST_JSON, options);
 
-				expect(Reflect.get(options, delegationKey)).toBe(context);
-
-				if (reject) {
-					throw error;
-				}
-
-				return ast;
-			},
-		});
-
-		const options = {
-			astFormat: parser.astFormat,
-			locEnd: parser.locEnd,
-			locStart: parser.locStart,
-			parser: 'json',
-			plugins: [priorPlugin, wrapperPlugin, pluginExpandJSON],
-		} as unknown as ParserOptions;
-
-		const originalPlugins = options.plugins;
-
-		const outerContext = {
-			delegation: {
-				hook: 'preprocess',
-				parserName: 'json',
-				resolveNext: vi.fn(async () => {
-					await Promise.resolve();
-					return undefined;
-				}),
-			},
-			snapshot: {
-				locEnd: options.locEnd,
-				locStart: options.locStart,
-				plugins: options.plugins,
-			},
-			syncOptions: vi.fn(),
-		};
-
-		if (hasOuterContext) {
-			Reflect.set(options, delegationKey, outerContext);
-		}
-
-		await expect(parser.parse(TEST_JSON, options)).rejects.toBe(error);
-
-		expect(Reflect.get(options, delegationKey)).toBe(
-			hasOuterContext ? outerContext : undefined
-		);
-		expect(Object.hasOwn(options, delegationKey)).toBe(hasOuterContext);
-
-		reject = false;
-
-		await parser.parse(TEST_JSON, options);
-
-		expect(wrapperCalls).toBe(2);
-		expect(nativeParse).toHaveBeenCalledTimes(2);
-		expect(outerContext.delegation.resolveNext).not.toHaveBeenCalled();
-		expect(outerContext.syncOptions).toHaveBeenCalledTimes(
-			hasOuterContext ? 2 : 0
-		);
-		expect(Reflect.get(options, delegationKey)).toBe(
-			hasOuterContext ? outerContext : undefined
-		);
-		expect(Object.hasOwn(options, delegationKey)).toBe(hasOuterContext);
-		expect(options.plugins).toBe(originalPlugins);
-	}
-);
+	expect(getWrapperCallCount()).toBe(2);
+	expect(nativeParse).toHaveBeenCalledTimes(2);
+	expect(outerContext.delegation.resolveNext).not.toHaveBeenCalled();
+	expect(outerContext.syncOptions).not.toHaveBeenCalled();
+	expect(Reflect.ownKeys(options)).not.toContain(delegationKey);
+	expect(options.plugins).toBe(originalPlugins);
+});
 
 test('skips unchanged copied hooks from an independent instance', async () => {
 	vi.resetModules();

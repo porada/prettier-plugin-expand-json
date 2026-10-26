@@ -10,26 +10,29 @@ import * as pluginExpandJSON from './index.ts';
 test('exposes correct public API', () => {
 	expectTypeOf(pluginExpandJSON).toExtend<Plugin>();
 
+	expect(pluginExpandJSON).toHaveProperty('options');
 	expect(pluginExpandJSON).toHaveProperty('parsers');
 	expect(pluginExpandJSON).toHaveProperty('printers');
+	expect(pluginExpandJSON.printers).toHaveProperty('estree-expand-json');
+	expect(pluginExpandJSON.printers).toHaveProperty('estree-json');
 });
 
 const TEST_JSON = `{
 	"foo": [1, 2],
 	"bar": [3],
-	"baz": { "values": [4] },
-	"qux": [],
-	"quux": {}
+	"baz": { "qux": [4] },
+	"quux": [],
+	"corge": {}
 }`;
 
 const TEST_JSONC = `{
-	// Comment 1️⃣
+	// Comment 1
 	"foo": [1, 2],
-	"bar": /* Comment 2️⃣ */ [3],
-	// Comment 3️⃣
-	"baz": { "values": [4] },
-	"qux": [], // Comment 4️⃣
-	"quux": {},
+	"bar": /* Comment 2 */ [3],
+	// Comment 3
+	"baz": { "qux": [4] },
+	"quux": [], // Comment 4
+	"corge": {},
 }`;
 
 const TESTS = [
@@ -44,34 +47,42 @@ describe.each(TESTS)('%s', (_, parser, input, markdownLanguage) => {
 	});
 
 	test('expands non-empty arrays and objects', async () => {
-		const output = await format(input, {
-			objectWrap: 'collapse',
+		const options = {
+			objectWrap: 'collapse' as const,
 			parser,
 			plugins: [pluginExpandJSON],
 			printWidth: Number.POSITIVE_INFINITY,
-		});
+		};
+
+		const output = await format(input, options);
 
 		expect(output).toMatchSnapshot();
+		await expect(format(output, options)).resolves.toBe(output);
 	});
 
 	test('expands input embedded in Markdown', async () => {
+		const options = {
+			parser: 'markdown',
+			plugins: [pluginExpandJSON],
+		};
+
 		const output = await format(
 			`\`\`\`${markdownLanguage}\n${input}\n\`\`\`\n`,
-			{
-				parser: 'markdown',
-				plugins: [pluginExpandJSON],
-			}
+			options
 		);
 
 		expect(output).toMatchSnapshot();
+		await expect(format(output, options)).resolves.toBe(output);
 	});
 
 	if (parser === 'json') {
 		test('normalizes numbers', async () => {
-			const output = await format('{"foo":1.230}', {
+			const options = {
 				parser,
 				plugins: [pluginExpandJSON],
-			});
+			};
+
+			const output = await format('{"foo":1.230}', options);
 
 			expect(output).toMatchInlineSnapshot(`
 				"{
@@ -79,6 +90,7 @@ describe.each(TESTS)('%s', (_, parser, input, markdownLanguage) => {
 				}
 				"
 			`);
+			await expect(format(output, options)).resolves.toBe(output);
 		});
 	}
 
@@ -94,14 +106,12 @@ describe.each(TESTS)('%s', (_, parser, input, markdownLanguage) => {
 			const output = await format(input, options);
 
 			expect(output).toBe(input);
-
-			await expect(format(output, options)).resolves.toBe(output);
 		});
 	}
 
 	test('respects `cursorOffset`', async () => {
-		const input = '{"before":[1],"target":"alpha§omega","after":[2]}\n';
-		const cursorOffset = input.indexOf('§');
+		const input = '{"before":[1],"target":"foo|bar","after":[2]}\n';
+		const cursorOffset = input.indexOf('|');
 
 		const { cursorOffset: formattedCursorOffset, formatted } =
 			await formatWithCursor(input, {
@@ -111,8 +121,8 @@ describe.each(TESTS)('%s', (_, parser, input, markdownLanguage) => {
 			});
 
 		expect(formatted).not.toBe(input);
-		expect(formatted[formattedCursorOffset]).toBe('§');
-		expect(formattedCursorOffset).toBe(formatted.indexOf('§'));
+		expect(formatted[formattedCursorOffset]).toBe('|');
+		expect(formattedCursorOffset).toBe(formatted.indexOf('|'));
 	});
 
 	test('respects `embeddedLanguageFormatting`', async () => {
@@ -128,14 +138,17 @@ describe.each(TESTS)('%s', (_, parser, input, markdownLanguage) => {
 	});
 
 	test('respects `endOfLine`', async () => {
-		const output = await format(input, {
-			endOfLine: 'crlf',
+		const options = {
+			endOfLine: 'crlf' as const,
 			parser,
 			plugins: [pluginExpandJSON],
-		});
+		};
+
+		const output = await format(input, options);
 
 		expect(output).toContain('\r\n');
 		expect(output).not.toMatch(/(^|[^\r])\n/);
+		await expect(format(output, options)).resolves.toBe(output);
 	});
 
 	if (parser === 'jsonc') {
@@ -159,7 +172,6 @@ describe.each(TESTS)('%s', (_, parser, input, markdownLanguage) => {
 				}
 				"
 			`);
-
 			await expect(format(output, options)).resolves.toBe(output);
 		});
 
@@ -186,39 +198,40 @@ describe.each(TESTS)('%s', (_, parser, input, markdownLanguage) => {
 				}
 				"
 			`);
-
 			await expect(format(output, options)).resolves.toBe(output);
 		});
 	}
 
 	if (parser !== 'json-stringify') {
 		test('respects `rangeStart` and `rangeEnd`', async () => {
-			const selectedInput = '{"alpha":[1,2],"beta":{"gamma":3}}';
+			const selectedInput = '{"foo":[1,2],"bar":{"baz":3}}';
 			const input = `{
 "outsideBefore" : [ 0 ,1 ],
 "selected" :
 ${selectedInput},
-"outsideAfter" : { "omega" : [ 4 ,5 ] }
+"outsideAfter" : { "qux" : [ 4 ,5 ] }
 }
 `;
 			const rangeStart = input.indexOf(selectedInput);
 			const rangeEnd = rangeStart + selectedInput.length;
 			const unchangedPrefix = input.slice(0, rangeStart);
 			const unchangedSuffix = input.slice(rangeEnd);
-
-			const output = await format(input, {
+			const options = {
 				parser,
 				plugins: [pluginExpandJSON],
 				rangeEnd,
 				rangeStart,
-			});
+			};
 
-			expect(output).not.toBe(input);
-			expect(output.slice(0, unchangedPrefix.length)).toBe(
-				unchangedPrefix
+			const selectedOutput = await format(selectedInput, {
+				parser,
+				plugins: [pluginExpandJSON],
+			});
+			const output = await format(input, options);
+
+			expect(output).toBe(
+				`${unchangedPrefix}${selectedOutput.trimEnd()}${unchangedSuffix}`
 			);
-			expect(output.slice(-unchangedSuffix.length)).toBe(unchangedSuffix);
-			expect(output).toContain('"alpha": [\n');
 		});
 	}
 
@@ -243,7 +256,6 @@ ${selectedInput},
 				}
 				"
 			`);
-
 			await expect(format(output, options)).resolves.toBe(output);
 			await expect(format(unformattedInput, options)).resolves.toBe(
 				unformattedInput
@@ -252,41 +264,66 @@ ${selectedInput},
 	}
 
 	test('respects `tabWidth`', async () => {
-		const output = await format(input, {
+		const options = {
 			parser,
 			plugins: [pluginExpandJSON],
 			tabWidth: 4,
-		});
+		};
+
+		const output = await format(input, options);
 
 		expect(output).toMatchSnapshot();
+		await expect(format(output, options)).resolves.toBe(output);
 	});
 
 	if (parser === 'jsonc') {
 		test('respects `trailingComma`', async () => {
-			for (const trailingComma of ['all', 'none'] as const) {
-				const options = {
+			const options = {
+				all: {
 					parser,
 					plugins: [pluginExpandJSON],
-					trailingComma,
-				};
+					trailingComma: 'all' as const,
+				},
+				none: {
+					parser,
+					plugins: [pluginExpandJSON],
+					trailingComma: 'none' as const,
+				},
+			};
 
-				const output = await format(input, options);
-				const standaloneOutput = await standaloneFormat(input, options);
+			const outputs = {
+				all: await format(input, options.all),
+				none: await format(input, options.none),
+			};
 
-				expect(output).toMatchSnapshot();
-				expect(standaloneOutput).toBe(output);
-			}
+			expect(outputs).toMatchSnapshot();
+			await expect(format(outputs.all, options.all)).resolves.toBe(
+				outputs.all
+			);
+			await expect(format(outputs.none, options.none)).resolves.toBe(
+				outputs.none
+			);
+
+			await expect(standaloneFormat(input, options.all)).resolves.toBe(
+				outputs.all
+			);
+			await expect(standaloneFormat(input, options.none)).resolves.toBe(
+				outputs.none
+			);
 		});
 	}
 
 	test('respects `useTabs`', async () => {
-		const output = await format(input, {
+		const options = {
 			parser,
 			plugins: [pluginExpandJSON],
 			useTabs: true,
-		});
+		};
+
+		const output = await format(input, options);
 
 		expect(output).toMatchSnapshot();
+		await expect(format(output, options)).resolves.toBe(output);
 	});
 
 	test('works with other plugins', async () => {
@@ -304,27 +341,31 @@ ${selectedInput},
 
 		const emptyPlugin: Plugin = {};
 
-		const output = await format(input, {
+		const options = {
 			parser,
 			plugins: [
 				parser === 'json' ? pluginSortJSON : testPlugin,
 				emptyPlugin,
 				pluginExpandJSON,
 			],
-		});
+		};
+
+		const output = await format(input, options);
 
 		expect(output).toMatchSnapshot();
 	});
 
 	test('handles empty files', async () => {
 		const input = '\n';
-
-		const output = await format(input, {
+		const options = {
 			parser,
 			plugins: [pluginExpandJSON],
-		});
+		};
+
+		const output = await format(input, options);
 
 		expect(output).toBe('');
+		await expect(format(output, options)).resolves.toBe(output);
 	});
 
 	if (parser === 'jsonc') {
@@ -341,20 +382,26 @@ ${selectedInput},
 	}
 
 	test('formats in standalone mode with bundled parser and printer fallbacks', async () => {
-		const output = await standaloneFormat(input, {
+		const options = {
 			parser,
 			plugins: [pluginExpandJSON],
-		});
+		};
 
-		expect(output).toMatchSnapshot();
+		const expectedOutput = await format(input, options);
+		const output = await standaloneFormat(input, options);
+
+		expect(output).toBe(expectedOutput);
 	});
 
 	test('formats in standalone mode with native plugins', async () => {
-		const output = await standaloneFormat(input, {
+		const options = {
 			parser,
 			plugins: [pluginBabel, pluginEstree, pluginExpandJSON],
-		});
+		};
 
-		expect(output).toMatchSnapshot();
+		const expectedOutput = await format(input, options);
+		const output = await standaloneFormat(input, options);
+
+		expect(output).toBe(expectedOutput);
 	});
 });
