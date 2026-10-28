@@ -143,11 +143,14 @@ describe.each(TESTS)('%s', (_, parser, input, markdownLanguage) => {
 			parser,
 			plugins: [pluginExpandJSON],
 		};
+		const expectedOutput = await format(input, {
+			...options,
+			endOfLine: 'lf',
+		});
 
 		const output = await format(input, options);
 
-		expect(output).toContain('\r\n');
-		expect(output).not.toMatch(/(^|[^\r])\n/);
+		expect(output).toBe(expectedOutput.replaceAll('\n', '\r\n'));
 		await expect(format(output, options)).resolves.toBe(output);
 	});
 
@@ -326,7 +329,7 @@ ${selectedInput},
 		await expect(format(output, options)).resolves.toBe(output);
 	});
 
-	test('works with other plugins', async () => {
+	test('formats output from other plugins’ parser hooks', async () => {
 		const testPlugin: Plugin = {
 			parsers: {
 				[parser]: {
@@ -355,7 +358,7 @@ ${selectedInput},
 		expect(output).toMatchSnapshot();
 	});
 
-	test('handles empty files', async () => {
+	test('formats newline-only files as empty', async () => {
 		const input = '\n';
 		const options = {
 			parser,

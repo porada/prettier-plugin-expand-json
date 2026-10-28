@@ -70,14 +70,14 @@ test('preserves dangling comments in arrays', async () => {
 });
 
 test('preserves dangling comments in nested containers', async () => {
-	const output = await format('{"baz":[{/* Comment */}]}', {
+	const output = await format('{"foo":[{/* Comment */}]}', {
 		parser: 'jsonc',
 		plugins: [plugin],
 	});
 
 	expect(output).toMatchInlineSnapshot(`
 		"{
-		  "baz": [
+		  "foo": [
 		    {
 		      /* Comment */
 		    },
@@ -88,14 +88,14 @@ test('preserves dangling comments in nested containers', async () => {
 });
 
 test('preserves dangling comments in objects', async () => {
-	const output = await format('{"bar":{/* Comment */}}', {
+	const output = await format('{"foo":{/* Comment */}}', {
 		parser: 'jsonc',
 		plugins: [plugin],
 	});
 
 	expect(output).toMatchInlineSnapshot(`
 		"{
-		  "bar": {
+		  "foo": {
 		    /* Comment */
 		  },
 		}
@@ -104,15 +104,15 @@ test('preserves dangling comments in objects', async () => {
 });
 
 test('keeps truly empty arrays and objects compact', async () => {
-	const output = await format('{"qux":[],"quux":{}}', {
+	const output = await format('{"foo":[],"bar":{}}', {
 		parser: 'jsonc',
 		plugins: [plugin],
 	});
 
 	expect(output).toMatchInlineSnapshot(`
 		"{
-		  "qux": [],
-		  "quux": {},
+		  "foo": [],
+		  "bar": {},
 		}
 		"
 	`);

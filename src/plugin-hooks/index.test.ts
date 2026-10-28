@@ -643,7 +643,7 @@ test('preserves plugin lists reassigned by prior parsers', async () => {
 });
 
 test.each(['json', 'jsonc'] as const)(
-	'works with independently loaded plugin copies with the `%s` parser',
+	'matches a single copy’s output alongside an independently loaded copy with the `%s` parser',
 	async (parserName) => {
 		vi.resetModules();
 
@@ -1216,7 +1216,7 @@ test('passes the compatibility options argument to prior parsers', async () => {
 	expect(compatibilityOptions).toBe(options);
 });
 
-test('handles wrappers that copy the current parser hooks', async () => {
+test('matches its own output after wrappers that copy the current parser hooks', async () => {
 	const parser = getDirectParser(pluginExpandJSON, 'json');
 	const wrapperPlugin = createJSONWrapperPlugin({ ...parser });
 
@@ -1294,7 +1294,7 @@ test('avoids recursion through wrappers that inherit from the current parser', a
 	expect(parseCallCount).toBe(1);
 });
 
-test('handles wrappers that reuse the current `parse` function', async () => {
+test('matches the wrapper’s output when it reuses the current `parse` function', async () => {
 	const parser = getDirectParser(pluginExpandJSON, 'json');
 	const wrapperPlugin = createJSONWrapperPlugin({
 		...parser,
@@ -2083,9 +2083,9 @@ test('skips unchanged copied hooks from an independent instance', async () => {
 		],
 	} as unknown as ParserOptions;
 
-	for (const hook of ['parse', 'preprocess'] as const) {
-		const resolvedPriorParser = await resolvePriorParser(options, hook);
+	const parseResult = await resolvePriorParser(options, 'parse');
+	const preprocessResult = await resolvePriorParser(options, 'preprocess');
 
-		expect(resolvedPriorParser?.parser).toBe(priorParser);
-	}
+	expect(parseResult?.parser).toBe(priorParser);
+	expect(preprocessResult?.parser).toBe(priorParser);
 });
