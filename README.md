@@ -42,40 +42,6 @@
 
 <div>&nbsp;</div>
 
-## Overview
-
-This plugin expands all JSON arrays and objects into a consistent multi-line format.
-
-- Works with both JSON and JSONC files.
-- Supports files that Prettier treats as special cases, including `package.json`, `composer.json`, and others.
-- Comes without any additional dependencies.
-
-## Example
-
-<!-- prettier-ignore -->
-```json
-{
-    "extends": "@standard-config/tsconfig",
-    "compilerOptions": {
-        "types": ["node", "vitest/globals"]
-    }
-}
-```
-
-…will always be formatted as:
-
-```json
-{
-    "extends": "@standard-config/tsconfig",
-    "compilerOptions": {
-        "types": [
-            "node",
-            "vitest/globals"
-        ]
-    }
-}
-```
-
 ## Install
 
 ```sh
@@ -124,6 +90,40 @@ If you’re using any other JSON plugins, make sure `prettier-plugin-expand-json
     ]
 }
 ```
+
+## FAQ
+
+### What does expanded JSON look like?
+
+The layout follows `JSON.stringify` with indentation: arrays and objects are expanded into a multi-line format, while empty arrays and objects stay compact.
+
+<!-- prettier-ignore -->
+```json
+{
+    "extends": "@standard-config/tsconfig",
+    "compilerOptions": {
+        "types": ["node", "vitest/globals"]
+    }
+}
+```
+
+…will be formatted as:
+
+```json
+{
+    "extends": "@standard-config/tsconfig",
+    "compilerOptions": {
+        "types": [
+            "node",
+            "vitest/globals"
+        ]
+    }
+}
+```
+
+### Does this plugin work with files like `package.json` and `composer.json`?
+
+Yes. Prettier uses a separate parser called `json-stringify` to match the formatting of the tools that update these files. This plugin supports that parser, too.
 
 ## Related
 
